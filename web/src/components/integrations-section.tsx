@@ -8,6 +8,7 @@ import {
 import { toast } from "sonner"
 
 import { api, type Settings, type SettingsResponse } from "@/lib/api"
+import { SettingHelp } from "@/components/setting-help"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import {
@@ -128,9 +129,10 @@ export function IntegrationsSection({
         </div>
         <Field orientation="horizontal">
           <FieldContent>
-            <FieldLabel htmlFor="qbit-api">
-              qBittorrent-compatible API
-            </FieldLabel>
+            <div className="flex items-center gap-1">
+              <FieldLabel htmlFor="qbit-api">qBittorrent-compatible API</FieldLabel>
+              <SettingHelp id="qbit_api" />
+            </div>
             <FieldDescription>
               Served at /api/v2. Turn it off if nothing else needs to connect.
             </FieldDescription>

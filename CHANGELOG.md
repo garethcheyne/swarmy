@@ -30,4 +30,5 @@ The first Swarmy: a BitTorrent client with a web UI you'd actually want to look 
 - A live swarm map: where your peers are, with pieces flowing to and from you. Peer locations are looked up on your own server, from a free database Swarmy downloads and keeps up to date, so peer addresses are never sent anywhere.
 - Charts that draw themselves in, numbers that count up, and a piece map that lights up as pieces finish.
 - An animated sign-in screen where the swarm assembles the Swarmy mark.
+- Every setting is explained: a plain description, and an ⓘ with what it does, what changing it affects, and a sensible value.
 - This changelog, built into the app.

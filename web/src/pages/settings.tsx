@@ -11,7 +11,9 @@ import { toast } from "sonner"
 import { api, UnauthorizedError, type Category, type ServerInfo, type Settings, type SettingsResponse, type GeoStatus } from "@/lib/api"
 import { usePoll } from "@/lib/use-poll"
 import { cn } from "@/lib/utils"
+import type { HelpId } from "@/lib/settings-help"
 import { SETTINGS_SECTIONS, settingsHref, useSettingsSection } from "@/lib/settings-sections"
+import { SettingHelp } from "@/components/setting-help"
 import { ChangelogPanel } from "@/components/release-notes"
 import { AppearancePanel } from "@/components/appearance-dialog"
 import { IntegrationsSection } from "@/components/integrations-section"
@@ -81,6 +83,27 @@ function Locked({ on }: { on: boolean }) {
   )
 }
 
+/** A field label with its ⓘ beside it (outside the label, so clicking it
+ * doesn't toggle the control). */
+function HelpLabel({
+  htmlFor,
+  help,
+  className,
+  children,
+}: {
+  htmlFor?: string
+  help?: HelpId
+  className?: string
+  children: ReactNode
+}) {
+  return (
+    <div className={cn("flex items-center gap-1", className)}>
+      <FieldLabel htmlFor={htmlFor}>{children}</FieldLabel>
+      {help && <SettingHelp id={help} />}
+    </div>
+  )
+}
+
 function SwitchRow({
   id,
   label,
@@ -88,6 +111,7 @@ function SwitchRow({
   checked,
   onChange,
   locked = false,
+  help,
 }: {
   id: string
   label: string
@@ -95,14 +119,15 @@ function SwitchRow({
   checked: boolean
   onChange: (v: boolean) => void
   locked?: boolean
+  help?: HelpId
 }) {
   return (
     <Field orientation="horizontal" data-disabled={locked || undefined}>
       <FieldContent>
-        <FieldLabel htmlFor={id}>
+        <HelpLabel htmlFor={id} help={help}>
           {label}
           <Locked on={locked} />
-        </FieldLabel>
+        </HelpLabel>
         {description && <FieldDescription>{description}</FieldDescription>}
       </FieldContent>
       <Switch id={id} checked={checked} onCheckedChange={onChange} disabled={locked} />
@@ -240,10 +265,10 @@ export function SettingsPage({ onSignedOut }: { onSignedOut: () => void }) {
                 <Section title="Downloads" description="Where new torrents go, and how they start.">
                   <FieldGroup>
                     <Field data-disabled={locked("downloads.default_save_path") || undefined}>
-                      <FieldLabel htmlFor="save-path">
+                      <HelpLabel htmlFor="save-path" help="save_path">
                         Default save folder
                         <Locked on={locked("downloads.default_save_path")} />
-                      </FieldLabel>
+                      </HelpLabel>
                       <Input
                         id="save-path"
                         className="data"
@@ -257,7 +282,7 @@ export function SettingsPage({ onSignedOut }: { onSignedOut: () => void }) {
                       </FieldDescription>
                     </Field>
                     <SwitchRow
-                      id="add-paused"
+                      id="add-paused" help="add_paused"
                       label="Add torrents paused"
                       description="New torrents wait until you start them. Sonarr and Radarr follow this too."
                       checked={draft.downloads.add_paused}
@@ -288,10 +313,10 @@ export function SettingsPage({ onSignedOut }: { onSignedOut: () => void }) {
                   )}
                   <FieldGroup>
                     <Field data-disabled={locked("connection.listen_port") || undefined}>
-                      <FieldLabel htmlFor="port">
+                      <HelpLabel htmlFor="port" help="listen_port">
                         Listening port
                         <Locked on={locked("connection.listen_port")} />
-                      </FieldLabel>
+                      </HelpLabel>
                       <NumberInput
                         id="port"
                         min={1024}
@@ -302,12 +327,12 @@ export function SettingsPage({ onSignedOut }: { onSignedOut: () => void }) {
                       />
                       <FieldDescription>For incoming peers, over TCP and uTP. Forward this port on your router for the best speeds.</FieldDescription>
                     </Field>
-                    <SwitchRow id="upnp" label="Forward the port with UPnP" description="Asks your router to open the port automatically." checked={draft.connection.upnp} onChange={(v) => set("connection", { upnp: v })} locked={locked("connection.upnp")} />
+                    <SwitchRow id="upnp" help="upnp" label="Forward the port with UPnP" description="Asks your router to open the port automatically." checked={draft.connection.upnp} onChange={(v) => set("connection", { upnp: v })} locked={locked("connection.upnp")} />
                     <Field data-disabled={locked("connection.bind_interface") || undefined}>
-                      <FieldLabel htmlFor="iface">
+                      <HelpLabel htmlFor="iface" help="bind_interface">
                         Network interface
                         <Locked on={locked("connection.bind_interface")} />
-                      </FieldLabel>
+                      </HelpLabel>
                       <Input
                         id="iface"
                         className="data w-48"
@@ -318,23 +343,23 @@ export function SettingsPage({ onSignedOut }: { onSignedOut: () => void }) {
                       />
                       <FieldDescription>Bind all torrent traffic to a VPN interface. If the VPN drops, torrent traffic stops instead of leaking.</FieldDescription>
                     </Field>
-                    <SwitchRow id="ipv4" label="IPv4 only" checked={draft.connection.ipv4_only} onChange={(v) => set("connection", { ipv4_only: v })} locked={locked("connection.ipv4_only")} />
+                    <SwitchRow id="ipv4" help="ipv4_only" label="IPv4 only" description="Never connect to peers over IPv6. Stops IPv6 slipping around a VPN that only tunnels IPv4." checked={draft.connection.ipv4_only} onChange={(v) => set("connection", { ipv4_only: v })} locked={locked("connection.ipv4_only")} />
                     <FieldSeparator />
-                    <SwitchRow id="dht" label="DHT" description="Find peers without a tracker. Needed for magnet links." checked={draft.connection.dht} onChange={(v) => set("connection", { dht: v })} />
-                    <SwitchRow id="lsd" label="Local peer discovery" description="Find peers on your own network." checked={draft.connection.lsd} onChange={(v) => set("connection", { lsd: v })} />
+                    <SwitchRow id="dht" help="dht" label="DHT" description="Find peers without a tracker. Needed for magnet links." checked={draft.connection.dht} onChange={(v) => set("connection", { dht: v })} />
+                    <SwitchRow id="lsd" help="lsd" label="Local peer discovery" description="Find peers on your own network." checked={draft.connection.lsd} onChange={(v) => set("connection", { lsd: v })} />
                     <Field>
-                      <FieldLabel htmlFor="peers">Maximum peers per torrent</FieldLabel>
+                      <HelpLabel htmlFor="peers" help="peer_limit">Maximum peers per torrent</HelpLabel>
                       <NumberInput id="peers" value={draft.connection.peer_limit} onChange={(v) => set("connection", { peer_limit: Math.max(0, Math.round(v)) })} />
-                      <FieldDescription>0 uses the engine's default.</FieldDescription>
+                      <FieldDescription>More can be faster on busy torrents but uses more memory, and strains some routers. 0 uses the engine's default.</FieldDescription>
                     </Field>
                     <FieldSeparator />
                     <Field>
-                      <FieldLabel htmlFor="proxy">SOCKS5 proxy for peers</FieldLabel>
+                      <HelpLabel htmlFor="proxy" help="socks_proxy">SOCKS5 proxy for peers</HelpLabel>
                       <Input id="proxy" className="data" placeholder="socks5://user:password@host:1080" value={draft.connection.socks_proxy} onChange={(e) => set("connection", { socks_proxy: e.target.value })} />
                       <FieldDescription>Outgoing peer connections go through this proxy. Leave empty for none.</FieldDescription>
                     </Field>
                     <Field>
-                      <FieldLabel htmlFor="blocklist">IP blocklist URL</FieldLabel>
+                      <HelpLabel htmlFor="blocklist" help="blocklist">IP blocklist URL</HelpLabel>
                       <Input id="blocklist" className="data" placeholder="https://example.org/blocklist.p2p.gz" value={draft.connection.blocklist_url} onChange={(e) => set("connection", { blocklist_url: e.target.value })} />
                       <FieldDescription>A P2P or DAT format list, gzipped or plain. Peers on it are refused.</FieldDescription>
                     </Field>
@@ -343,21 +368,24 @@ export function SettingsPage({ onSignedOut }: { onSignedOut: () => void }) {
               )}
 
               {section === "speed" && (
-                <Section title="Speed" description="Limits apply to all torrents. Use 0 for no limit.">
+                <Section title="Speed" description="Limits are shared by all torrents, in KiB/s (1024 KiB/s is 1 MiB/s). Use 0 for no limit. A little headroom below your line speed keeps the rest of your internet responsive.">
                   <FieldGroup>
                     <div className="grid gap-4 sm:grid-cols-2">
                       <Field>
-                        <FieldLabel htmlFor="dl">Download limit</FieldLabel>
+                        <HelpLabel htmlFor="dl" help="download_limit">Download limit</HelpLabel>
                         <NumberInput id="dl" unit="KiB/s" value={draft.speed.download_limit} onChange={(v) => set("speed", { download_limit: Math.max(0, Math.round(v)) })} />
                       </Field>
                       <Field>
-                        <FieldLabel htmlFor="ul">Upload limit</FieldLabel>
+                        <HelpLabel htmlFor="ul" help="upload_limit">Upload limit</HelpLabel>
                         <NumberInput id="ul" unit="KiB/s" value={draft.speed.upload_limit} onChange={(v) => set("speed", { upload_limit: Math.max(0, Math.round(v)) })} />
                       </Field>
                     </div>
                     <FieldSeparator />
                     <div className="flex flex-col gap-1">
-                      <h3 className="text-[13px] font-semibold">Alternative limits</h3>
+                      <div className="flex items-center gap-1">
+                        <h3 className="text-[13px] font-semibold">Alternative limits</h3>
+                        <SettingHelp id="alt_limits" />
+                      </div>
                       <p className="text-[13px] text-muted-foreground">A second set of limits for when you need the bandwidth, switched by hand (the turtle in the top bar) or on a schedule.</p>
                     </div>
                     <div className="grid gap-4 sm:grid-cols-2">
@@ -370,9 +398,9 @@ export function SettingsPage({ onSignedOut }: { onSignedOut: () => void }) {
                         <NumberInput id="aul" unit="KiB/s" value={draft.speed.alt_upload_limit} onChange={(v) => set("speed", { alt_upload_limit: Math.max(0, Math.round(v)) })} />
                       </Field>
                     </div>
-                    <SwitchRow id="alt-now" label="Use alternative limits now" checked={draft.speed.alt_enabled} onChange={(v) => set("speed", { alt_enabled: v })} />
+                    <SwitchRow id="alt-now" help="alt_limits" label="Use alternative limits now" checked={draft.speed.alt_enabled} onChange={(v) => set("speed", { alt_enabled: v })} />
                     <SwitchRow
-                      id="sched"
+                      id="sched" help="schedule"
                       label="Switch on automatically"
                       description="Uses the server's local time."
                       checked={draft.speed.schedule.enabled}
@@ -425,19 +453,19 @@ export function SettingsPage({ onSignedOut }: { onSignedOut: () => void }) {
               {section === "queue" && (
                 <Section title="Queue and seeding" description="Limit how many torrents run at once, and when to stop seeding.">
                   <FieldGroup>
-                    <SwitchRow id="queue" label="Queue torrents" description="Torrents over the limits wait, then start when a slot frees up. Oldest first." checked={draft.queue.enabled} onChange={(v) => set("queue", { enabled: v })} />
+                    <SwitchRow id="queue" help="queue" label="Queue torrents" description="Torrents over the limits wait, then start when a slot frees up. Oldest first." checked={draft.queue.enabled} onChange={(v) => set("queue", { enabled: v })} />
                     {draft.queue.enabled && (
                       <div className="grid gap-4 sm:grid-cols-3">
                         <Field>
-                          <FieldLabel htmlFor="qd">Active downloads</FieldLabel>
+                          <HelpLabel htmlFor="qd" help="queue_downloads">Active downloads</HelpLabel>
                           <NumberInput id="qd" className="w-full" value={draft.queue.max_downloads} onChange={(v) => set("queue", { max_downloads: Math.max(0, Math.round(v)) })} />
                         </Field>
                         <Field>
-                          <FieldLabel htmlFor="qu">Active uploads</FieldLabel>
+                          <HelpLabel htmlFor="qu" help="queue_uploads">Active uploads</HelpLabel>
                           <NumberInput id="qu" className="w-full" value={draft.queue.max_uploads} onChange={(v) => set("queue", { max_uploads: Math.max(0, Math.round(v)) })} />
                         </Field>
                         <Field>
-                          <FieldLabel htmlFor="qa">Active in total</FieldLabel>
+                          <HelpLabel htmlFor="qa" help="queue_total">Active in total</HelpLabel>
                           <NumberInput id="qa" className="w-full" min={1} value={draft.queue.max_active} onChange={(v) => set("queue", { max_active: Math.max(1, Math.round(v)) })} />
                         </Field>
                       </div>
@@ -445,7 +473,7 @@ export function SettingsPage({ onSignedOut }: { onSignedOut: () => void }) {
                     <FieldSeparator />
                     <div className="flex flex-col gap-1">
                       <h3 className="text-[13px] font-semibold">Seeding limits</h3>
-                      <p className="text-[13px] text-muted-foreground">Sonarr and Radarr check these to know when a download can be cleaned up.</p>
+                      <p className="text-[13px] text-muted-foreground">When a finished torrent should stop seeding. The first limit it reaches applies. Sonarr and Radarr check these to know when a download can be cleaned up.</p>
                     </div>
                     <Field orientation="horizontal">
                       <Checkbox
@@ -453,7 +481,7 @@ export function SettingsPage({ onSignedOut }: { onSignedOut: () => void }) {
                         checked={draft.seeding.ratio_limit !== null}
                         onCheckedChange={(on) => set("seeding", { ratio_limit: on ? 2 : null })}
                       />
-                      <FieldLabel htmlFor="ratio-on" className="w-44">Stop at a share ratio of</FieldLabel>
+                      <HelpLabel htmlFor="ratio-on" help="ratio_limit" className="w-44">Stop at a share ratio of</HelpLabel>
                       <NumberInput id="ratio" step={0.1} className="w-28" disabled={draft.seeding.ratio_limit === null} value={draft.seeding.ratio_limit ?? 2} onChange={(v) => set("seeding", { ratio_limit: Math.max(0, v) })} />
                     </Field>
                     <Field orientation="horizontal">
@@ -462,7 +490,7 @@ export function SettingsPage({ onSignedOut }: { onSignedOut: () => void }) {
                         checked={draft.seeding.time_limit !== null}
                         onCheckedChange={(on) => set("seeding", { time_limit: on ? 1440 : null })}
                       />
-                      <FieldLabel htmlFor="time-on" className="w-44">Stop after seeding for</FieldLabel>
+                      <HelpLabel htmlFor="time-on" help="seeding_time" className="w-44">Stop after seeding for</HelpLabel>
                       <NumberInput id="seedtime" unit="min" className="w-36" disabled={draft.seeding.time_limit === null} value={draft.seeding.time_limit ?? 1440} onChange={(v) => set("seeding", { time_limit: Math.max(1, Math.round(v)) })} />
                     </Field>
                     <Field orientation="horizontal">
@@ -471,11 +499,11 @@ export function SettingsPage({ onSignedOut }: { onSignedOut: () => void }) {
                         checked={draft.seeding.inactive_time_limit !== null}
                         onCheckedChange={(on) => set("seeding", { inactive_time_limit: on ? 720 : null })}
                       />
-                      <FieldLabel htmlFor="idle-on" className="w-44">Stop after no activity for</FieldLabel>
+                      <HelpLabel htmlFor="idle-on" help="inactive_time" className="w-44">Stop after no activity for</HelpLabel>
                       <NumberInput id="idletime" unit="min" className="w-36" disabled={draft.seeding.inactive_time_limit === null} value={draft.seeding.inactive_time_limit ?? 720} onChange={(v) => set("seeding", { inactive_time_limit: Math.max(1, Math.round(v)) })} />
                     </Field>
                     <Field>
-                      <FieldLabel>Then</FieldLabel>
+                      <HelpLabel help="seed_action">Then</HelpLabel>
                       <Select
                         value={draft.seeding.action}
                         onValueChange={(v) => v && set("seeding", { action: v as Settings["seeding"]["action"] })}
@@ -525,7 +553,7 @@ export function SettingsPage({ onSignedOut }: { onSignedOut: () => void }) {
                 >
                   <FieldGroup>
                     <SwitchRow
-                      id="peer-locations"
+                      id="peer-locations" help="peer_locations"
                       label="Show where peers are"
                       description="Downloads DB-IP's free city database (about 60 MB) and checks for a new edition every few hours. Turn off to make no connections for this."
                       checked={draft.peer_map.locations}
@@ -815,7 +843,7 @@ function SecuritySection({
         </div>
         <FieldGroup>
           <Field>
-            <FieldLabel htmlFor="session-days">Stay signed in for</FieldLabel>
+            <HelpLabel htmlFor="session-days" help="session_days">Stay signed in for</HelpLabel>
             <NumberInput id="session-days" unit="days" min={1} max={365} value={draft.webui.session_days} onChange={(v) => set("webui", { session_days: Math.min(365, Math.max(1, Math.round(v))) })} />
             <FieldDescription>Applies to new sign-ins.</FieldDescription>
           </Field>
@@ -826,7 +854,7 @@ function SecuritySection({
         <FieldGroup>
           <div className="grid gap-4 sm:grid-cols-2">
             <Field>
-              <FieldLabel htmlFor="attempts">Lock out after</FieldLabel>
+              <HelpLabel htmlFor="attempts" help="lockout">Lock out after</HelpLabel>
               <NumberInput id="attempts" unit="failed tries" className="w-48" value={draft.webui.max_attempts} onChange={(v) => set("webui", { max_attempts: Math.max(0, Math.round(v)) })} />
               <FieldDescription>Per address. 0 turns lockout off.</FieldDescription>
             </Field>
@@ -836,7 +864,7 @@ function SecuritySection({
             </Field>
           </div>
           <Field>
-            <FieldLabel htmlFor="proxies">Trusted reverse proxies</FieldLabel>
+            <HelpLabel htmlFor="proxies" help="trusted_proxies">Trusted reverse proxies</HelpLabel>
             <Textarea
               id="proxies"
               rows={3}

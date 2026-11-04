@@ -1,27 +1,17 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react"
 import {
-  BellIcon,
-  DownloadIcon,
-  GaugeIcon,
-  InfoIcon,
-  ListOrderedIcon,
   LockIcon,
-  NetworkIcon,
-  PaletteIcon,
-  PlugIcon,
   PlusIcon,
   RotateCwIcon,
-  ShieldIcon,
-  TagIcon,
   Trash2Icon,
   XIcon,
-  EarthIcon,
 } from "lucide-react"
 import { toast } from "sonner"
 
 import { api, UnauthorizedError, type Category, type ServerInfo, type Settings, type SettingsResponse, type GeoStatus } from "@/lib/api"
 import { usePoll } from "@/lib/use-poll"
 import { cn } from "@/lib/utils"
+import { SETTINGS_SECTIONS, settingsHref, useSettingsSection } from "@/lib/settings-sections"
 import { ChangelogPanel } from "@/components/release-notes"
 import { AppearancePanel } from "@/components/appearance-dialog"
 import { IntegrationsSection } from "@/components/integrations-section"
@@ -54,20 +44,6 @@ import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 
-const SECTIONS = [
-  { id: "downloads", label: "Downloads", icon: DownloadIcon },
-  { id: "integrations", label: "Sonarr and Radarr", icon: PlugIcon },
-  { id: "connection", label: "Connection", icon: NetworkIcon },
-  { id: "speed", label: "Speed", icon: GaugeIcon },
-  { id: "queue", label: "Queue and seeding", icon: ListOrderedIcon },
-  { id: "categories", label: "Categories and tags", icon: TagIcon },
-  { id: "security", label: "Web UI and security", icon: ShieldIcon },
-  { id: "notifications", label: "Notifications", icon: BellIcon },
-  { id: "map", label: "Swarm map", icon: EarthIcon },
-  { id: "appearance", label: "Appearance", icon: PaletteIcon },
-  { id: "about", label: "About", icon: InfoIcon },
-] as const
-type SectionId = (typeof SECTIONS)[number]["id"]
 
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 
@@ -181,10 +157,7 @@ function NumberInput({
 // ---------------------------------------------------------------- page
 
 export function SettingsPage({ onSignedOut }: { onSignedOut: () => void }) {
-  const [section, setSection] = useState<SectionId>(() => {
-    const s = new URLSearchParams(location.hash.split("?")[1] ?? "").get("section")
-    return SECTIONS.some((x) => x.id === s) ? (s as SectionId) : "downloads"
-  })
+  const section = useSettingsSection()
   const [server, setServer] = useState<SettingsResponse | null>(null)
   const [draft, setDraft] = useState<Settings | null>(null)
   const [saving, setSaving] = useState(false)
@@ -231,24 +204,23 @@ export function SettingsPage({ onSignedOut }: { onSignedOut: () => void }) {
   const locked = (f: string) => !!server?.locked.includes(f)
 
   return (
-    <div className="flex h-full min-h-0 flex-col md:flex-row">
-      <nav aria-label="Settings sections" className="shrink-0 overflow-x-auto border-b md:w-56 md:overflow-y-auto md:border-r md:border-b-0">
-        <div className="flex gap-1 p-2 md:flex-col md:p-3">
-          <h1 className="hidden px-2.5 pt-1 pb-2 text-[15px] font-semibold md:block">Settings</h1>
-          {SECTIONS.map((s) => (
-            <button
+    <div className="flex h-full min-h-0 flex-col">
+      {/* On desktop the sections are in the main menu; phones get a strip. */}
+      <nav aria-label="Settings sections" className="shrink-0 overflow-x-auto border-b md:hidden">
+        <div className="flex gap-1 p-2">
+          {SETTINGS_SECTIONS.map((s) => (
+            <a
               key={s.id}
-              type="button"
+              href={settingsHref(s.id)}
               aria-current={section === s.id ? "page" : undefined}
-              onClick={() => setSection(s.id)}
               className={cn(
-                "flex min-h-9 shrink-0 items-center gap-2 rounded-md px-2.5 text-left text-[13px] whitespace-nowrap text-muted-foreground hover:bg-muted hover:text-foreground",
+                "flex min-h-9 shrink-0 items-center gap-2 rounded-md px-2.5 text-[13px] whitespace-nowrap text-muted-foreground hover:bg-muted hover:text-foreground",
                 section === s.id && "bg-muted text-foreground"
               )}
             >
               <s.icon className="size-4" />
               {s.label}
-            </button>
+            </a>
           ))}
         </div>
       </nav>

@@ -306,8 +306,6 @@ function Shell({ onSignedOut }: { onSignedOut: () => void }) {
         setFilter(f)
         setFocused(null)
       }}
-      onNotifications={openNotifications}
-      onAppearance={() => setAppearanceOpen(true)}
       onLogout={logout}
       onNavigate={onNavigate}
     />

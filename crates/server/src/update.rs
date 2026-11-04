@@ -46,6 +46,14 @@ pub fn version_key(v: &str) -> Option<Vec<u32>> {
     parts.filter(|p| !p.is_empty())
 }
 
+/// `2026.11.05.4` → `2026-11-05`.
+fn release_date(version: &str) -> Option<String> {
+    match version_key(version)?.as_slice() {
+        [y, m, d, ..] => Some(format!("{y:04}-{m:02}-{d:02}")),
+        _ => None,
+    }
+}
+
 fn newer(candidate: &str, than: &str) -> bool {
     match (version_key(candidate), version_key(than)) {
         (Some(a), Some(b)) => a > b,
@@ -151,7 +159,9 @@ impl Updates {
             .iter()
             .filter_map(|r| {
                 let version = r.tag_name.trim_start_matches('v');
-                let date = r.published_at.as_deref().and_then(|d| d.get(..10)).unwrap_or("");
+                // The version is the release date (GitHub's publish time is UTC,
+                // which can be the day before or after where you are).
+                let date = release_date(version).unwrap_or_default();
                 // The release body is that version's CHANGELOG.md entry, then an
                 // "## Install" note; parse() stops the release at that heading.
                 let src = format!("## [{version}] - {date}\n{}", r.body.as_deref().unwrap_or(""));
@@ -332,6 +342,13 @@ mod tests {
         assert!(!newer("2026.11.05.4", "2026.11.05.4"));
         assert!(!newer("2026.11.05.3", "2026.11.05.4"));
         assert!(!newer("nightly", "2026.11.05.4"));
+    }
+
+    #[test]
+    fn release_date_comes_from_the_version() {
+        assert_eq!(release_date("2026.11.05.4").as_deref(), Some("2026-11-05"));
+        assert_eq!(release_date("v2027.1.2.1").as_deref(), Some("2027-01-02"));
+        assert_eq!(release_date("nightly"), None);
     }
 
     #[test]

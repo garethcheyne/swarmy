@@ -11,6 +11,11 @@ lists. Versions are `yyyy.mm.dd.build`: the release date, then 1 for the
 first release that day, 2 for the next, and so on. The top entry is the
 version Swarmy reports, and a release tag must match it.
 
+## [2026.11.05.6] - 2026-11-05
+
+### Fixed
+- The notes for an available update could show its release date a day off, depending on your time zone.
+
 ## [2026.11.05.5] - 2026-11-05
 
 Know when there's a new Swarmy, and install it from Settings.

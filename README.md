@@ -16,15 +16,18 @@ Pick one. Each prints the address to open and the first sign-in password when it
 
 ### Proxmox VE
 
-On the Proxmox host's shell (not inside a container), as root:
+Swarmy always runs in its own LXC container; nothing is installed on the Proxmox host itself. Paste this into the
+host's shell (**Datacenter → your node → Shell**) and it creates the container for you and installs Swarmy in it:
 
 ```sh
 bash -c "$(curl -fsSL https://raw.githubusercontent.com/garethcheyne/swarmy/main/install/proxmox.sh)"
 ```
 
-This creates a small Debian container (2 cores, 1 GB RAM, 8 GB disk) that starts with the host, and
-installs Swarmy in it. Set options in front of the command, for example to keep downloads in a folder on the
-host that Sonarr and Radarr can also see:
+The container is unprivileged Debian (2 cores, 1 GB RAM, 8 GB disk), starts with the host, and gets its address by
+DHCP. When it's done, the script prints the address to open and the first sign-in password.
+
+Set options in front of the command. For example, to keep downloads in a folder on the host that Sonarr and Radarr
+can also see:
 
 ```sh
 DOWNLOADS_HOST=/tank/downloads DOWNLOADS_CHOWN=1 bash -c "$(curl -fsSL https://raw.githubusercontent.com/garethcheyne/swarmy/main/install/proxmox.sh)"

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Create a Debian LXC container on Proxmox VE and install Swarmy in it.
-# Run on the Proxmox host as root (the host's shell, not inside a container):
+# Creates an LXC container for Swarmy and installs Swarmy inside it; nothing is
+# installed on the Proxmox host itself. Run it on the host, as root:
 #
 #   bash -c "$(curl -fsSL https://raw.githubusercontent.com/garethcheyne/swarmy/main/install/proxmox.sh)"
 #
@@ -84,7 +84,7 @@ pct exec "$CTID" -- getent hosts github.com >/dev/null 2>&1 \
   || die "container $CTID has no network or DNS. Check BRIDGE=$BRIDGE has DHCP, then run: pct destroy $CTID"
 
 say "Installing Swarmy inside the container"
-pct exec "$CTID" -- bash -c "apt-get update -qq && apt-get install -y -qq curl ca-certificates >/dev/null"
+pct exec "$CTID" -- env DEBIAN_FRONTEND=noninteractive bash -c "apt-get update -qq && apt-get install -y -qq curl ca-certificates >/dev/null"
 pct exec "$CTID" -- env SWARMY_PORT="$PORT" SWARMY_DOWNLOADS="$CT_DOWNLOADS" \
   bash -c "curl -fsSL $RAW/install.sh | bash"
 

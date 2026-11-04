@@ -43,7 +43,7 @@ fi
 if [ ! -s /etc/ssl/certs/ca-certificates.crt ] && [ ! -s /etc/pki/tls/certs/ca-bundle.crt ]; then
   if command -v apt-get >/dev/null; then
     say "Installing CA certificates"
-    apt-get update -qq && apt-get install -y -qq ca-certificates >/dev/null
+    DEBIAN_FRONTEND=noninteractive apt-get install -y -qq ca-certificates >/dev/null 2>&1 || { apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq ca-certificates >/dev/null; }
   elif command -v dnf >/dev/null; then
     dnf install -y -q ca-certificates
   else

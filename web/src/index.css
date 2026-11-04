@@ -1053,3 +1053,57 @@
 @media (prefers-reduced-motion: reduce) {
   .cell-active { animation: none; }
 }
+
+/* Sign-in card nudge on a wrong password. */
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-8px); }
+  40% { transform: translateX(7px); }
+  60% { transform: translateX(-5px); }
+  80% { transform: translateX(3px); }
+}
+
+/*
+ * The sign-in screen's light: a glow behind the S in the brand colour, the
+ * download and upload colours pooling in opposite corners, and a vignette.
+ * It drifts slowly; the swarm canvas sits on top.
+ */
+.login-aura {
+  --aura-x: 50%;
+  --aura-y: 25%;
+  background:
+    radial-gradient(42% 32% at var(--aura-x) var(--aura-y), color-mix(in oklab, var(--sidebar-primary) 20%, transparent), transparent 72%),
+    radial-gradient(55% 45% at 0% 0%, color-mix(in oklab, var(--down) 14%, transparent), transparent 70%),
+    radial-gradient(60% 50% at 100% 100%, color-mix(in oklab, var(--up) 14%, transparent), transparent 70%),
+    radial-gradient(130% 100% at 50% 45%, transparent 55%, color-mix(in oklab, var(--background) 55%, black) 100%);
+  background-size: 115% 115%;
+  animation: aura-drift 24s ease-in-out infinite alternate;
+}
+:root:not(.dark) .login-aura {
+  background:
+    radial-gradient(42% 32% at var(--aura-x) var(--aura-y), color-mix(in oklab, var(--sidebar-primary) 16%, transparent), transparent 72%),
+    radial-gradient(55% 45% at 0% 0%, color-mix(in oklab, var(--down) 12%, transparent), transparent 70%),
+    radial-gradient(60% 50% at 100% 100%, color-mix(in oklab, var(--up) 12%, transparent), transparent 70%);
+  background-size: 115% 115%;
+}
+@media (min-width: 1024px) {
+  .login-aura {
+    --aura-x: 30%;
+    --aura-y: 36%;
+  }
+}
+@keyframes aura-drift {
+  from { background-position: 0% 0%; }
+  to { background-position: 100% 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .login-aura { animation: none; }
+}
+
+/* The wordmark is lit from above and picks up the brand colour at its foot. */
+.login-wordmark {
+  background: linear-gradient(175deg, var(--foreground) 35%, color-mix(in oklab, var(--foreground) 45%, var(--sidebar-primary)) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}

@@ -1,0 +1,23 @@
+[package]
+name = "swarmy-usenet"
+version = "0.1.0"
+edition = "2024"
+description = "Swarmy's Usenet downloader: NNTP, NZB, yEnc, repair and unpacking"
+
+[dependencies]
+anyhow = "1.0.104"
+crc32fast = "1.5.4"
+quick-xml = "0.41"
+serde = { version = "1.0.229", features = ["derive"] }
+thiserror = "2"
+tokio = { version = "1.54.1", features = ["full"] }
+tokio-rustls = "0.26"
+rustls = "0.23"
+rustls-platform-verifier = "0.7"
+tracing = "0.1.44"
+unrar = "0.5"
+sevenz-rust2 = "0.24"
+rust-par2 = "0.2"
+
+[dev-dependencies]
+tempfile = "3"

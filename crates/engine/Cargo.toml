@@ -1,0 +1,12 @@
+[package]
+name = "swarmy-engine"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = "1.0.104"
+async-trait = "0.1.92"
+librqbit = "9.1.0"
+rand = "0.10.3"
+serde = { version = "1.0.229", features = ["derive"] }
+tokio = { version = "1.54.1", features = ["full"] }

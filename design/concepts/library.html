@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Swarmy concept: Library</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,800&family=Instrument+Sans:wght@400;500;600&display=swap">
+<style>
+  /* Concept 3: a media shelf. Torrents become covers on shelves, grouped by what fetched them. Forest dark. */
+  :root { --bg:#0e1510; --card:#152019; --muted:#1d2b22; --line:#223127; --ink:#e4ebe1; --dim:#97a68f;
+          --brand:#9ccc65; --down:#5f9e3a; --up:#3d93c7; --bad:#e66767; }
+  * { box-sizing:border-box }
+  body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.5 "Instrument Sans",system-ui,sans-serif }
+  .serif { font-family:"Fraunces",Georgia,serif }
+  .num { font-variant-numeric:tabular-nums }
+  :focus-visible { outline:2px solid var(--brand); outline-offset:3px }
+  button { font:inherit; font-weight:600; border-radius:8px; padding:9px 16px; border:1px solid var(--line); background:var(--muted); color:var(--ink); cursor:pointer }
+  header { display:flex; flex-wrap:wrap; align-items:center; gap:16px 28px; padding:18px max(16px,4vw) }
+  .brand { font-family:"Fraunces",serif; font-weight:800; font-size:24px; display:flex; align-items:center; gap:8px }
+  header nav { display:flex; gap:20px } header nav a { color:var(--dim); text-decoration:none; font-weight:500 } header nav a.on { color:var(--ink) }
+  .search { margin-left:auto; display:flex; align-items:center; gap:8px; background:var(--card); border:1px solid var(--line); border-radius:999px; padding:7px 14px; color:var(--dim); width:min(320px,100%) }
+  .search input { background:none; border:0; color:var(--ink); font:inherit; outline:none; width:100% }
+  .feature { margin:8px max(16px,4vw) 0; display:grid; grid-template-columns:minmax(0,260px) minmax(0,1fr); gap:32px; align-items:end; padding:28px; border-radius:20px;
+             background:radial-gradient(120% 140% at 0% 0%, #23402a 0%, #152019 55%) }
+  @media (max-width: 720px) { .feature { grid-template-columns:1fr } }
+  .cover { position:relative; aspect-ratio:2/3; border-radius:10px; overflow:hidden; display:flex; flex-direction:column; justify-content:flex-end; padding:14px; box-shadow:0 18px 40px -18px rgb(0 0 0 / .7) }
+  .cover .ct { font-family:"Fraunces",serif; font-weight:800; line-height:.95; letter-spacing:-0.01em; text-wrap:balance }
+  .cover .cy { font-size:12px; opacity:.8; margin-top:6px }
+  .cover .band { position:absolute; left:0; right:0; bottom:0; height:5px; background:rgb(0 0 0 / .35) } .cover .band i { display:block; height:100% }
+  .feature .kicker { color:var(--brand); font-weight:600; font-size:13px }
+  .feature h1 { margin:6px 0 10px; font-family:"Fraunces",serif; font-weight:800; font-size:clamp(34px,4.5vw,60px); line-height:1 }
+  .feature p { margin:0; color:var(--dim); max-width:56ch }
+  .big { height:10px; border-radius:5px; background:#0b120d; overflow:hidden; margin:22px 0 10px; max-width:640px } .big i { display:block; height:100%; background:var(--down) }
+  .stats { display:flex; flex-wrap:wrap; gap:8px 28px; color:var(--dim) } .stats b { color:var(--ink); font-weight:600 }
+  .feature .actions { display:flex; gap:10px; margin-top:22px } .feature .actions .primary { background:var(--brand); color:#0e1510; border-color:var(--brand) }
+  section.shelf { padding:36px max(16px,4vw) 0 } section.shelf:last-of-type { padding-bottom:56px }
+  .shelf-head { display:flex; align-items:baseline; gap:14px; margin-bottom:14px }
+  .shelf-head h2 { margin:0; font-family:"Fraunces",serif; font-weight:600; font-size:26px }
+  .shelf-head span { color:var(--dim) } .shelf-head a { margin-left:auto; color:var(--dim) }
+  .row { display:grid; grid-auto-flow:column; grid-auto-columns:minmax(150px,170px); gap:18px; overflow-x:auto; padding-bottom:6px }
+  .item { display:flex; flex-direction:column; gap:8px; color:inherit; text-decoration:none }
+  .item .cap { font-size:13px; color:var(--dim); display:flex; justify-content:space-between; gap:8px }
+  .item .cap b { color:var(--ink); font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
+  .discs { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:14px }
+  .disc { display:grid; grid-template-columns:56px minmax(0,1fr); gap:14px; align-items:center; padding:14px; background:var(--card); border:1px solid var(--line); border-radius:14px }
+  .disc .ring { width:56px; height:56px }
+  .disc b { display:block; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap } .disc small { color:var(--dim) }
+</style>
+</head>
+<body>
+  <header>
+    <div class="brand"><svg width="24" height="24" viewBox="0 0 32 32" aria-hidden="true"><path d="M16 1.5 28.6 8.75v14.5L16 30.5 3.4 23.25V8.75Z" fill="#9ccc65"/><path d="M16 11.2 21.9 14.6v6.8L16 24.8l-5.9-3.4v-6.8Z" fill="#0e1510"/></svg>Swarmy</div>
+    <nav aria-label="Sections"><a href="#" class="on">Library</a><a href="#">Downloads</a><a href="#">Statistics</a></nav>
+    <label class="search"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input aria-label="Search the library" placeholder="Search the library"></label>
+    <button type="button" style="background:var(--brand);color:#0e1510;border-color:var(--brand)">Add</button>
+  </header>
+
+  <div class="feature">
+    <div class="cover" style="background:#2b5a3a;color:#f3f7ef"><div class="ct" style="font-size:46px">Sintel</div><div class="cy">2010, 2160p</div><div class="band"><i style="width:65.9%;background:#9ccc65"></i></div></div>
+    <div>
+      <div class="kicker">Now downloading, requested by Radarr 2 hours ago</div>
+      <h1>Sintel</h1>
+      <p>Blender Foundation short film. Radarr will import it into Movies as soon as the download finishes and has been checked.</p>
+      <div class="big" role="progressbar" aria-valuenow="66" aria-valuemin="0" aria-valuemax="100" aria-label="Sintel download progress"><i style="width:65.9%"></i></div>
+      <div class="stats num"><span><b>65.9%</b> of 4.6 GiB</span><span><b>7.7 MiB/s</b> from 15 peers</span><span><b>3 min 27 s</b> left</span></div>
+      <div class="actions"><button type="button">Pause</button><button type="button">Show files</button></div>
+    </div>
+  </div>
+
+  <section class="shelf"><div class="shelf-head"><h2>TV</h2><span>from Sonarr, 4</span><a href="#">See all</a></div><div class="row" id="tv"></div></section>
+  <section class="shelf"><div class="shelf-head"><h2>Movies</h2><span>from Radarr, 5</span><a href="#">See all</a></div><div class="row" id="movies"></div></section>
+  <section class="shelf"><div class="shelf-head"><h2>Linux and software</h2><span>9</span><a href="#">See all</a></div><div class="discs" id="discs"></div></section>
+
+<script>
+  const cover = (c) => `<a class="item" href="#">
+      <div class="cover" style="background:${c.bg};color:${c.fg}"><div class="ct" style="font-size:${c.size ?? 28}px">${c.title}</div><div class="cy">${c.sub}</div>
+      ${c.p < 1 ? `<div class="band"><i style="width:${Math.max(3, c.p * 100)}%;background:${c.bar ?? "#9ccc65"}"></i></div>` : ""}</div>
+      <div class="cap num"><b>${c.cap}</b><span>${c.state}</span></div></a>`
+  document.getElementById("tv").innerHTML = [
+    { title:"The Cisco Kid", sub:"S01E03, 1950", bg:"#c9b27c", fg:"#2b2414", p:.401, cap:"S01E03", state:"40%" },
+    { title:"The Cisco Kid", sub:"S01E02, 1950", bg:"#c9b27c", fg:"#2b2414", p:1, cap:"S01E02", state:"Seeding" },
+    { title:"Flash Gordon", sub:"S01E07, 1954", bg:"#3c4f7a", fg:"#f1ecdf", p:.179, bar:"#e6b54a", cap:"S01E07", state:"Stalled" },
+    { title:"Dick Tracy", sub:"S01E01, 1950", bg:"#a8442e", fg:"#fbe9d8", p:1, cap:"S01E01", state:"Imported" },
+  ].map(cover).join("")
+  document.getElementById("movies").innerHTML = [
+    { title:"Cosmos Laundromat", sub:"2015, 1080p", bg:"#e7d9c7", fg:"#2a1c12", p:.94, size:26, cap:"Cosmos Laundromat", state:"94%" },
+    { title:"Tears of Steel", sub:"2012, 2160p", bg:"#29333d", fg:"#e8eef3", p:0.01, size:30, cap:"Tears of Steel", state:"Metadata" },
+    { title:"Night of the Living Dead", sub:"1968, 1080p", bg:"#e9e4d8", fg:"#141414", p:1, size:24, cap:"Night of the Living Dead", state:"Seeding" },
+    { title:"Big Buck Bunny", sub:"2008, 1080p", bg:"#8fc46a", fg:"#16240e", p:1, size:30, cap:"Big Buck Bunny", state:"Seeding" },
+    { title:"Sintel", sub:"2010, 2160p", bg:"#2b5a3a", fg:"#f3f7ef", p:.659, size:38, cap:"Sintel", state:"66%" },
+  ].map(cover).join("")
+  const ring = (p, color) => { const r = 24, c = 2 * Math.PI * r
+    return `<svg class="ring" viewBox="0 0 56 56" role="img" aria-label="${Math.round(p * 100)} percent"><circle cx="28" cy="28" r="${r}" fill="none" stroke="#223127" stroke-width="6"/>
+      <circle cx="28" cy="28" r="${r}" fill="none" stroke="${color}" stroke-width="6" stroke-linecap="round" stroke-dasharray="${c * p} ${c}" transform="rotate(-90 28 28)"/>
+      <text x="28" y="32" text-anchor="middle" font-size="12" font-weight="600" fill="#e4ebe1">${p >= 1 ? "✓" : Math.round(p * 100)}</text></svg>` }
+  document.getElementById("discs").innerHTML = [
+    ["ubuntu-26.04-desktop-amd64.iso", .449, "10.2 MiB/s, 5 min left", "var(--down)"],
+    ["Fedora-Workstation-Live-x86_64-45.iso", .814, "6.2 MiB/s, 1 min left", "var(--down)"],
+    ["archlinux-2026.11.01-x86_64.iso", 1, "Seeding at 1.4 MiB/s, ratio 2.01", "var(--up)"],
+    ["debian-13.2.0-amd64-DVD-1.iso", 1, "Seeding at 1.2 MiB/s, ratio 1.74", "var(--up)"],
+    ["blender-5.1.0-linux-x64", 1, "Seeding, ratio 0.11", "var(--up)"],
+    ["linuxmint-23-cinnamon-64bit.iso", .08, "Checking files", "#5b6b55"],
+  ].map(([n, p, s, col]) => `<div class="disc">${ring(p, col)}<div><b title="${n}">${n}</b><small class="num">${s}</small></div></div>`).join("")
+</script>
+</body>
+</html>

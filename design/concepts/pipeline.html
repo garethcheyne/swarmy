@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Swarmy concept: Pipeline</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800&display=swap">
+<style>
+  /* Concept 2: torrents move left to right through stages, like a board. Forest light. */
+  :root { --bg:#f2f4ef; --card:#ffffff; --muted:#e5e9e0; --line:#d8ddd1; --ink:#1c2a1f; --dim:#56634f;
+          --pine:#1c2a1f; --brand:#7cb342; --down:#4f8f2f; --up:#2a7fb8; --bad:#c8372d; --warn:#9a6a00; }
+  * { box-sizing:border-box }
+  body { margin:0; background:var(--bg); color:var(--ink); font:14px/1.5 "Schibsted Grotesk",system-ui,sans-serif }
+  .num { font-variant-numeric:tabular-nums }
+  button, a.btn { font:inherit; font-weight:600; border-radius:999px; padding:7px 14px; border:1px solid var(--line); background:var(--card); color:var(--ink); cursor:pointer; text-decoration:none }
+  button.primary { background:var(--pine); color:#fff; border-color:var(--pine) }
+  :focus-visible { outline:2px solid var(--up); outline-offset:2px }
+  .top { background:var(--pine); color:#e4ebe1; padding:20px max(16px, 3vw) 28px }
+  .bar { display:flex; flex-wrap:wrap; align-items:center; gap:12px 24px }
+  .brand { display:flex; align-items:center; gap:8px; font-weight:800; font-size:18px }
+  .tabs { display:flex; gap:4px } .tabs a { color:#bcc8b5; text-decoration:none; padding:6px 12px; border-radius:999px; font-weight:500 }
+  .tabs a.on { background:#2a3a2c; color:#fff }
+  .top .primary { margin-left:auto; background:var(--brand); color:#14200f; border-color:var(--brand) }
+  .hero { display:flex; flex-wrap:wrap; align-items:flex-end; justify-content:space-between; gap:24px; margin-top:28px }
+  .hero h1 { margin:0; font-size:clamp(28px,3.2vw,44px); font-weight:800; line-height:1.1; letter-spacing:-0.02em; max-width:22ch }
+  .hero h1 em { font-style:normal; color:#9ccc65 }
+  .flow { width:min(520px,100%) }
+  .flow svg { width:100%; height:64px; display:block }
+  .flow p { margin:6px 0 0; color:#97a68f; font-size:12px }
+  .board { display:grid; grid-auto-flow:column; grid-auto-columns:minmax(260px,1fr); gap:16px; padding:24px max(16px,3vw) 40px; overflow-x:auto; align-items:start }
+  .col { display:flex; flex-direction:column; gap:10px; min-width:0 }
+  .col h2 { margin:0 0 4px; font-size:13px; font-weight:700; display:flex; align-items:center; gap:8px }
+  .col h2 .dot { width:8px; height:8px; border-radius:50% }
+  .col h2 .n { margin-left:auto; color:var(--dim); font-weight:500 }
+  .col .hint { color:var(--dim); font-size:12px; margin:-6px 0 4px }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:12px 14px; display:flex; flex-direction:column; gap:8px }
+  .card .t { font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
+  .meta { display:flex; flex-wrap:wrap; gap:4px 10px; color:var(--dim); font-size:12px }
+  .src { display:inline-flex; align-items:center; gap:4px; padding:1px 8px; border-radius:999px; background:var(--muted); color:var(--ink); font-size:11px; font-weight:600 }
+  .prog { height:6px; border-radius:3px; background:var(--muted); overflow:hidden } .prog i { display:block; height:100% }
+  .row2 { display:flex; justify-content:space-between; font-size:12px; color:var(--dim) } .row2 b { color:var(--ink); font-weight:600 }
+  .card.alert { border-color:#e7c6c2; background:#fdf6f5 } .card.warn { border-color:#e6d6ae; background:#fdf9ee }
+  .actions { display:flex; gap:6px; flex-wrap:wrap } .actions button { padding:5px 12px; font-size:12px }
+  .more { color:var(--dim); font-size:12px; text-align:center; padding:6px; border:1px dashed var(--line); border-radius:12px }
+</style>
+</head>
+<body>
+  <section class="top">
+    <div class="bar">
+      <div class="brand"><svg width="22" height="22" viewBox="0 0 32 32" aria-hidden="true"><path d="M16 1.5 28.6 8.75v14.5L16 30.5 3.4 23.25V8.75Z" fill="#9ccc65"/><path d="M16 11.2 21.9 14.6v6.8L16 24.8l-5.9-3.4v-6.8Z" fill="#1c2a1f"/></svg>Swarmy</div>
+      <nav class="tabs" aria-label="Sections"><a href="#" class="on">Board</a><a href="#">Activity</a><a href="#">Statistics</a><a href="#">Settings</a></nav>
+      <button class="primary" type="button">Add torrent</button>
+    </div>
+    <div class="hero">
+      <h1>8 downloading at <em class="num">23.7 MiB/s</em>. 3 finished since this morning.</h1>
+      <div class="flow">
+        <svg viewBox="0 0 520 64" preserveAspectRatio="none" aria-hidden="true">
+          <path d="M0 52 C40 48 60 30 100 28 S160 40 200 22 S280 12 320 20 S400 34 440 18 S500 14 520 16 L520 64 L0 64Z" fill="#9ccc65" opacity=".16"/>
+          <path d="M0 52 C40 48 60 30 100 28 S160 40 200 22 S280 12 320 20 S400 34 440 18 S500 14 520 16" fill="none" stroke="#9ccc65" stroke-width="2"/>
+          <path d="M0 58 C80 56 160 52 240 50 S400 48 520 46" fill="none" stroke="#5fa8d8" stroke-width="2"/>
+        </svg>
+        <p>Download (green) and upload (blue), last hour. Peak 38.2 MiB/s at 7:41 pm.</p>
+      </div>
+    </div>
+  </section>
+
+  <main class="board" id="board" aria-label="Torrents by stage"></main>
+
+<script>
+  const C = { down:"var(--down)", up:"var(--up)", bad:"var(--bad)", warn:"var(--warn)", dim:"#9aa694" }
+  const cols = [
+    { title:"Getting ready", dot:C.dim, hint:"Fetching metadata or checking files", cards:[
+      { t:"Tears.of.Steel.2012.2160p.WEB", src:"Radarr", cat:"radarr", p:0, note:"Asking 3 peers for metadata", color:C.dim },
+      { t:"linuxmint-23-cinnamon-64bit.iso", src:"You", cat:"linux", p:.08, note:"Checking 230 MiB already on disk", color:C.dim },
+    ]},
+    { title:"Downloading", dot:C.down, hint:"Fastest first", cards:[
+      { t:"openstreetmap-planet-261103.osm.pbf", src:"You", cat:"datasets", p:.053, speed:"15.9 MiB/s", eta:"1h 23m", color:C.down },
+      { t:"enwiki-20261101-pages-articles.xml", src:"You", cat:"datasets", p:.299, speed:"14.2 MiB/s", eta:"20m", color:C.down },
+      { t:"ubuntu-26.04-desktop-amd64.iso", src:"You", cat:"linux", p:.449, speed:"10.2 MiB/s", eta:"5m 36s", color:C.down },
+      { t:"Sintel.2010.2160p.WEB", src:"Radarr", cat:"radarr", p:.659, speed:"7.7 MiB/s", eta:"3m 27s", color:C.down },
+      { t:"Fedora-Workstation-Live-x86_64-45.iso", src:"You", cat:"linux", p:.814, speed:"6.2 MiB/s", eta:"1m 9s", color:C.down },
+      { t:"The.Cisco.Kid.1950.S01E03.720p.WEB", src:"Sonarr", cat:"tv-sonarr", p:.401, speed:"2.4 MiB/s", eta:"2m 58s", color:C.down },
+    ], more:"2 more" },
+    { title:"Seeding", dot:C.up, hint:"Giving back to the swarm", cards:[
+      { t:"archlinux-2026.11.01-x86_64.iso", src:"You", cat:"linux", p:1, speed:"1.4 MiB/s up", ratio:"2.01", color:C.up },
+      { t:"debian-13.2.0-amd64-DVD-1.iso", src:"You", cat:"linux", p:1, speed:"1.2 MiB/s up", ratio:"1.74", color:C.up },
+      { t:"Night.of.the.Living.Dead.1968.1080p.BluRay", src:"Radarr", cat:"radarr", p:1, speed:"640 KiB/s up", ratio:"1.25", color:C.up },
+    ], more:"10 more" },
+    { title:"Done", dot:"#3a4a3c", hint:"Imported by Sonarr or Radarr, ratio goal reached", cards:[
+      { t:"Dick.Tracy.1950.S01E01.720p.WEB", src:"Sonarr", cat:"tv-sonarr", p:1, done:"Imported 4 days ago", color:"#3a4a3c" },
+      { t:"NixOS-26.05-gnome-x86_64.iso", src:"You", cat:"linux", p:1, done:"Stopped at ratio 0.98", color:"#3a4a3c" },
+    ]},
+    { title:"Needs you", dot:C.bad, hint:"Something only you can fix", cards:[
+      { t:"Internet.Archive.Grateful.Dead.1977-05-08", src:"You", cat:"music", p:.66, kind:"alert", problem:"The disk is full. 2.1 GiB needed, 0 B free on /data/music.", actions:["Change folder","Retry"], color:C.bad },
+      { t:"Flash.Gordon.1954.S01E07.720p.WEB", src:"Sonarr", cat:"tv-sonarr", p:.179, kind:"warn", problem:"No peers for 3 hours. Sonarr may find another release.", actions:["Ask Sonarr for another","Keep waiting"], color:C.warn },
+    ]},
+  ]
+  const pct = (p) => (Math.floor(p * 1000) / 10).toFixed(1) + "%"
+  document.getElementById("board").innerHTML = cols.map((col) => `
+    <section class="col" aria-label="${col.title}">
+      <h2><span class="dot" style="background:${col.dot}"></span>${col.title}<span class="n num">${col.cards.length + (col.more ? parseInt(col.more) : 0)}</span></h2>
+      <p class="hint">${col.hint}</p>
+      ${col.cards.map((c) => `
+        <article class="card ${c.kind ?? ""}">
+          <div class="t" title="${c.t}">${c.t}</div>
+          <div class="meta"><span class="src">${c.src === "You" ? "Added by you" : "From " + c.src}</span><span>${c.cat}</span></div>
+          ${c.p < 1 || c.kind ? `<div class="prog"><i style="width:${Math.max(2, c.p * 100)}%;background:${c.color}"></i></div>` : ""}
+          ${c.speed ? `<div class="row2 num"><b>${c.speed}</b><span>${c.eta ? c.eta + " left, " + pct(c.p) : "ratio " + c.ratio}</span></div>` : ""}
+          ${c.note ? `<div class="row2"><span>${c.note}</span></div>` : ""}
+          ${c.done ? `<div class="row2"><span>${c.done}</span></div>` : ""}
+          ${c.problem ? `<div style="font-size:13px">${c.problem}</div><div class="actions">${c.actions.map((a, i) => `<button type="button" ${i === 0 ? 'class="primary"' : ""}>${a}</button>`).join("")}</div>` : ""}
+        </article>`).join("")}
+      ${col.more ? `<div class="more">${col.more}</div>` : ""}
+    </section>`).join("")
+</script>
+</body>
+</html>

@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Swarmy concept: Field station</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&display=swap">
+<style>
+  /* Concept 4: a ranger station's instrument panel. Gauges up top, downloads as trails, a logbook. Forest light. */
+  :root { --bg:#f2f4ef; --panel:#ffffff; --muted:#e5e9e0; --line:#d1d8c8; --ink:#1c2a1f; --dim:#56634f;
+          --pine:#1c2a1f; --brand:#7cb342; --down:#4f8f2f; --up:#2a7fb8; --bad:#c8372d; --amber:#9a6a00; }
+  * { box-sizing:border-box }
+  body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.5 "Barlow",system-ui,sans-serif }
+  .cond { font-family:"Barlow Condensed","Arial Narrow",sans-serif }
+  .num { font-variant-numeric:tabular-nums }
+  :focus-visible { outline:2px solid var(--up); outline-offset:2px }
+  button { font:600 14px "Barlow",sans-serif; border-radius:4px; padding:8px 14px; border:2px solid var(--pine); background:var(--panel); color:var(--pine); cursor:pointer }
+  button.primary { background:var(--pine); color:#f2f4ef }
+  .wrap { max-width:1400px; margin:0 auto; padding:20px max(16px,3vw) 56px; display:flex; flex-direction:column; gap:28px }
+  header { display:flex; flex-wrap:wrap; align-items:center; gap:12px 24px; border-bottom:3px solid var(--pine); padding-bottom:14px }
+  header .brand { font-family:"Barlow Condensed",sans-serif; font-weight:700; font-size:30px; letter-spacing:.02em; display:flex; align-items:center; gap:10px; text-transform:uppercase }
+  header .status { display:flex; flex-wrap:wrap; gap:6px 18px; color:var(--dim); font-size:14px }
+  header .status b { color:var(--ink) }
+  header .go { margin-left:auto; display:flex; gap:8px }
+  .gauges { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:16px }
+  .gauge { background:var(--panel); border:1px solid var(--line); border-radius:6px; padding:16px 18px 14px; display:flex; flex-direction:column; align-items:center }
+  .gauge h2 { align-self:stretch; margin:0; font-family:"Barlow Condensed",sans-serif; font-size:15px; letter-spacing:.08em; text-transform:uppercase; color:var(--dim); display:flex; justify-content:space-between }
+  .gauge svg { width:100%; max-width:260px; height:auto }
+  .gauge .read { font-family:"Barlow Condensed",sans-serif; font-weight:700; font-size:40px; line-height:1; margin-top:-26px }
+  .gauge .read small { font-size:18px; color:var(--dim); font-weight:600; margin-left:4px }
+  .gauge .sub { color:var(--dim); font-size:13px; margin-top:4px }
+  .grid2 { display:grid; grid-template-columns:minmax(0,1.6fr) minmax(0,1fr); gap:24px } @media (max-width: 960px) { .grid2 { grid-template-columns:1fr } }
+  h3 { margin:0 0 12px; font-family:"Barlow Condensed",sans-serif; font-size:24px; letter-spacing:.02em; text-transform:uppercase }
+  .trails { background:var(--panel); border:1px solid var(--line); border-radius:6px; padding:8px 18px }
+  .trail { display:grid; grid-template-columns:minmax(0,1fr) 112px; gap:8px 18px; padding:14px 0; border-bottom:1px dashed var(--line); align-items:center }
+  .trail:last-child { border-bottom:0 }
+  .trail .t { font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap } .trail .m { color:var(--dim); font-size:13px }
+  .trail .right { text-align:right; font-family:"Barlow Condensed",sans-serif; font-size:20px; font-weight:600 } .trail .right small { display:block; font-family:"Barlow",sans-serif; font-size:12px; color:var(--dim); font-weight:400 }
+  .path { grid-column:1 / -1; position:relative; height:22px }
+  .path svg { position:absolute; inset:0; width:100%; height:22px; overflow:visible }
+  .log { background:var(--pine); color:#e4ebe1; border-radius:6px; padding:16px 18px }
+  .log h3 { color:#fff }
+  .log ol { list-style:none; margin:0; padding:0; display:flex; flex-direction:column }
+  .log li { display:grid; grid-template-columns:64px minmax(0,1fr); gap:12px; padding:10px 0; border-bottom:1px solid #2a3a2c }
+  .log time { font-family:"Barlow Condensed",sans-serif; font-size:18px; color:#9ccc65 }
+  .log b { font-weight:600; display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap } .log span { color:#97a68f; font-size:13px }
+  .forecast { margin-top:16px; border:1px solid #2a3a2c; border-radius:4px; padding:12px; display:grid; grid-template-columns:1fr 1fr; gap:10px }
+  .forecast div { display:flex; flex-direction:column } .forecast span { font-size:12px; color:#97a68f } .forecast b { font-family:"Barlow Condensed",sans-serif; font-size:24px; color:#fff }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand"><svg width="28" height="28" viewBox="0 0 32 32" aria-hidden="true"><path d="M16 1.5 28.6 8.75v14.5L16 30.5 3.4 23.25V8.75Z" fill="#1c2a1f"/><path d="M16 11.2 21.9 14.6v6.8L16 24.8l-5.9-3.4v-6.8Z" fill="#7cb342"/></svg>Swarmy station</div>
+    <div class="status"><span>Swarm <b>healthy</b></span><span>VPN <b>wg0 up</b></span><span>Port <b>6881 open</b></span><span>Sonarr <b>linked</b></span><span>Radarr <b>linked</b></span></div>
+    <div class="go"><button type="button">Pause everything</button><button class="primary" type="button">Add torrent</button></div>
+  </header>
+
+  <section class="gauges" id="gauges" aria-label="Instruments"></section>
+
+  <div class="grid2">
+    <section>
+      <h3>On the trail</h3>
+      <div class="trails" id="trails"></div>
+    </section>
+    <section class="log" aria-label="Logbook">
+      <h3>Logbook</h3>
+      <ol id="log"></ol>
+      <div class="forecast">
+        <div><span>Queue clear in</span><b class="num">1 h 23 m</b></div>
+        <div><span>Today so far</span><b class="num">535 GiB</b></div>
+        <div><span>Share ratio</span><b class="num">0.14</b></div>
+        <div><span>Busiest hour</span><b>9 pm</b></div>
+      </div>
+    </section>
+  </div>
+</div>
+<script>
+  // Analog dial: 240° sweep, major ticks with labels, a needle and a coloured arc for the reading.
+  function dial(value, max, color, labels) {
+    const cx = 130, cy = 120, r = 96, start = 150, sweep = 240
+    const pt = (deg, rad) => { const a = (deg * Math.PI) / 180; return [cx + rad * Math.cos(a), cy + rad * Math.sin(a)] }
+    const arc = (from, to, rad) => { const [x1, y1] = pt(from, rad), [x2, y2] = pt(to, rad); return `M${x1} ${y1} A${rad} ${rad} 0 ${to - from > 180 ? 1 : 0} 1 ${x2} ${y2}` }
+    const v = start + sweep * Math.min(value / max, 1)
+    let ticks = ""
+    for (let i = 0; i <= 24; i++) {
+      const d = start + (sweep * i) / 24, major = i % 6 === 0
+      const [a, b] = pt(d, r - (major ? 14 : 8)), [c, e] = pt(d, r)
+      ticks += `<line x1="${a}" y1="${b}" x2="${c}" y2="${e}" stroke="#1c2a1f" stroke-width="${major ? 2.5 : 1.2}"/>`
+      if (major) { const [lx, ly] = pt(d, r - 30); ticks += `<text x="${lx}" y="${ly + 4}" text-anchor="middle" font-family="Barlow Condensed" font-size="13" fill="#56634f">${labels[i / 6]}</text>` }
+    }
+    const [nx, ny] = pt(v, r - 22)
+    return `<svg viewBox="0 0 260 170" aria-hidden="true">
+      <path d="${arc(start, start + sweep, r + 6)}" fill="none" stroke="#e5e9e0" stroke-width="8" stroke-linecap="round"/>
+      <path d="${arc(start, v, r + 6)}" fill="none" stroke="${color}" stroke-width="8" stroke-linecap="round"/>
+      ${ticks}
+      <line x1="${cx}" y1="${cy}" x2="${nx}" y2="${ny}" stroke="#c8372d" stroke-width="3" stroke-linecap="round"/>
+      <circle cx="${cx}" cy="${cy}" r="7" fill="#1c2a1f"/></svg>`
+  }
+  const g = [
+    { title:"Download", meta:"peak 38", v:23.7, max:40, unit:"MiB/s", color:"var(--down)", labels:[0,10,20,30,40], sub:"8 torrents pulling, 226 peers" },
+    { title:"Upload", meta:"limit 20", v:12.0, max:20, unit:"MiB/s", color:"var(--up)", labels:[0,5,10,15,20], sub:"13 torrents seeding" },
+    { title:"Disk", meta:"930 GiB", v:878, max:930, unit:"GiB used", color:"var(--bad)", labels:[0,232,465,697,930], sub:"51.6 GiB free, 94% full" },
+    { title:"Swarmy CPU", meta:"8 cores", v:2.4, max:20, unit:"%", color:"var(--brand)", labels:[0,5,10,15,20], sub:"117 MiB memory" },
+  ]
+  document.getElementById("gauges").innerHTML = g.map((x) => `<article class="gauge" aria-label="${x.title}: ${x.v} ${x.unit}">
+      <h2><span>${x.title}</span><span>${x.meta}</span></h2>${dial(x.v, x.max, x.color, x.labels)}
+      <div class="read num">${x.v}<small>${x.unit}</small></div><div class="sub">${x.sub}</div></article>`).join("")
+
+  const marks = [0, .25, .5, .75, 1]
+  const trail = (p, color) => `<svg viewBox="0 0 1000 22" preserveAspectRatio="none" aria-hidden="true">
+      <line x1="0" y1="11" x2="1000" y2="11" stroke="#d1d8c8" stroke-width="3" stroke-dasharray="2 7" stroke-linecap="round"/>
+      <line x1="0" y1="11" x2="${p * 1000}" y2="11" stroke="${color}" stroke-width="4" stroke-linecap="round"/>
+      ${marks.map((m) => `<rect x="${m * 1000 - 4}" y="5" width="8" height="12" rx="1" fill="${p >= m ? color : "#fff"}" stroke="${p >= m ? color : "#b7c0ac"}" stroke-width="2"/>`).join("")}
+      <circle cx="${p * 1000}" cy="11" r="7" fill="#fff" stroke="#1c2a1f" stroke-width="3"/></svg>`
+  document.getElementById("trails").innerHTML = [
+    ["openstreetmap-planet-261103.osm.pbf", "datasets, 82 GiB, 58 peers", .053, "15.9", "1 h 23 m to go"],
+    ["enwiki-20261101-pages-articles.xml", "datasets, 24.5 GiB, 44 peers", .299, "14.2", "20 m to go"],
+    ["ubuntu-26.04-desktop-amd64.iso", "linux, 6.1 GiB, 42 peers", .449, "10.2", "5 m 36 s to go"],
+    ["Sintel.2010.2160p.WEB", "from Radarr, 4.6 GiB, 15 peers", .659, "7.7", "3 m 27 s to go"],
+    ["Fedora-Workstation-Live-x86_64-45.iso", "linux, 2.3 GiB, 19 peers", .814, "6.2", "1 m 9 s to go"],
+    ["Flash.Gordon.1954.S01E07.720p.WEB", "from Sonarr, stuck: no peers for 3 h", .179, "0.0", "waiting"],
+  ].map(([n, m, p, s, eta]) => `<div class="trail"><div style="min-width:0"><div class="t" title="${n}">${n}</div><div class="m">${m}</div></div>
+      <div class="right num">${s}<small>MiB/s, ${eta}</small></div><div class="path">${trail(p, s === "0.0" ? "var(--amber)" : "var(--down)")}</div></div>`).join("")
+
+  document.getElementById("log").innerHTML = [
+    ["19:54", "Finished Cosmos.Laundromat.2015.1080p.WEB", "Radarr is importing it into Movies"],
+    ["19:41", "Download peaked at 38.2 MiB/s", "OpenStreetMap and Wikipedia both running"],
+    ["19:12", "Radarr sent Sintel.2010.2160p.WEB", "4.6 GiB, saved to /data/movies"],
+    ["18:47", "Disk nearly full on /data", "51.6 GiB left, 94% used"],
+    ["18:30", "Internet.Archive.Grateful.Dead stopped", "No space left on /data/music"],
+    ["17:05", "Sonarr sent The.Cisco.Kid S01E03", "0.7 GiB, saved to /data/tv"],
+  ].map(([t, b, s]) => `<li><time class="num">${t}</time><div style="min-width:0"><b title="${b}">${b}</b><span>${s}</span></div></li>`).join("")
+</script>
+</body>
+</html>

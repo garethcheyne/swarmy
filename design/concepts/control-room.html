@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Swarmy concept: Control room</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  /* Concept 1: dense, keyboard-first, three panes. Forest dark. */
+  :root { --bg:#0e1510; --deep:#0a100c; --panel:#111a14; --card:#152019; --muted:#1d2b22; --line:#223127; --line2:#2d3f32;
+          --ink:#e4ebe1; --soft:#c3cfbd; --dim:#97a68f; --brand:#9ccc65; --down:#5f9e3a; --up:#3d93c7; --bad:#e66767; --off:#5b6b55; }
+  * { box-sizing: border-box }
+  body { margin:0; background:var(--bg); color:var(--ink); font:13px/1.45 "IBM Plex Sans Condensed","Arial Narrow",sans-serif }
+  .num { font-family:"IBM Plex Mono",ui-monospace,monospace; font-variant-numeric:tabular-nums }
+  .label { color:var(--dim); font-size:11px; letter-spacing:.06em; text-transform:uppercase }
+  button { font:inherit; color:var(--ink); background:var(--muted); border:1px solid var(--line2); border-radius:5px; padding:5px 10px; cursor:pointer }
+  button:focus-visible, a:focus-visible, input:focus-visible { outline:2px solid var(--brand); outline-offset:2px }
+  .app { min-height:100vh; display:flex; flex-direction:column }
+  header { display:flex; flex-wrap:wrap; align-items:center; gap:16px; padding:10px 16px; border-bottom:1px solid var(--line); background:var(--deep) }
+  .brand { display:flex; align-items:center; gap:8px; font-weight:700; font-size:16px }
+  .cmd { flex:1 1 320px; max-width:560px; display:flex; align-items:center; gap:8px; background:var(--card); border:1px solid var(--line2); border-radius:6px; padding:6px 10px; color:var(--dim) }
+  .cmd input { flex:1; min-width:0; background:transparent; border:0; color:var(--ink); font:inherit; outline:none }
+  .kbd { font-size:11px; border:1px solid var(--line2); border-radius:4px; padding:1px 5px }
+  .rates { display:flex; gap:16px; margin-left:auto }
+  .add { background:var(--brand); color:#0e1510; border:0; font-weight:600; padding:7px 12px }
+  .body { flex:1; display:flex; flex-wrap:wrap; min-height:0 }
+  nav { flex:0 0 210px; padding:12px 8px; border-right:1px solid var(--line); display:flex; flex-direction:column; gap:18px }
+  nav a { display:flex; justify-content:space-between; padding:6px 10px; border-radius:6px; color:var(--soft); text-decoration:none }
+  nav a:hover { background:#18241c } nav a.on { background:var(--muted); color:var(--ink) }
+  nav a span:last-child { color:var(--dim) }
+  main { flex:999 1 560px; min-width:0; display:flex; flex-direction:column }
+  .toolbar { display:flex; flex-wrap:wrap; align-items:center; gap:10px; padding:10px 16px; border-bottom:1px solid var(--line) }
+  .table { overflow-x:auto }
+  .row { display:grid; grid-template-columns:minmax(0,1fr) 120px 84px 84px 64px 52px 48px; gap:12px; align-items:center; padding:7px 16px; border-bottom:1px solid #1b2820; min-width:720px }
+  .row:hover { background:#142019 } .row.sel { background:#1a2a1f; box-shadow:inset 2px 0 0 var(--brand) }
+  .row .r { text-align:right }
+  .name { display:flex; flex-direction:column; min-width:0 } .name b { font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis }
+  .name small { color:var(--dim); font-size:11px }
+  .bar { height:4px; border-radius:2px; background:var(--line); overflow:hidden } .bar i { display:block; height:100% }
+  aside { flex:1 1 340px; max-width:380px; border-left:1px solid var(--line); padding:16px; display:flex; flex-direction:column; gap:16px; background:var(--panel) }
+  aside h2 { margin:0; font-size:20px; line-height:1.2 }
+  .pieces { display:grid; grid-template-columns:repeat(36,minmax(0,1fr)); gap:2px } .pieces span { height:8px; border-radius:1px }
+  dl { display:grid; grid-template-columns:110px minmax(0,1fr); gap:6px 12px; margin:0 } dt { color:var(--dim) } dd { margin:0 }
+  footer { display:flex; flex-wrap:wrap; gap:6px 24px; padding:6px 16px; border-top:1px solid var(--line); background:var(--deep); color:var(--dim); font-size:11px }
+  @media (max-width: 900px) { aside { max-width:none; border-left:0; border-top:1px solid var(--line) } nav { flex-basis:100%; border-right:0; flex-direction:row; overflow-x:auto } }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="brand">
+      <svg width="20" height="20" viewBox="0 0 32 32" aria-hidden="true"><path d="M16 1.5 28.6 8.75v14.5L16 30.5 3.4 23.25V8.75Z" fill="#9ccc65"/><path d="M16 11.2 21.9 14.6v6.8L16 24.8l-5.9-3.4v-6.8Z" fill="#0a100c"/></svg>
+      Swarmy
+    </div>
+    <label class="cmd">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input aria-label="Search or run a command" placeholder="Search torrents or type a command: pause all, add magnet, go to stats">
+      <span class="kbd num">Ctrl K</span>
+    </label>
+    <div class="rates num"><span><span style="color:var(--down)">▼</span> 23.7 MiB/s</span><span><span style="color:var(--up)">▲</span> 12.0 MiB/s</span></div>
+    <button class="add" type="button">Add torrent</button>
+  </header>
+  <div class="body">
+    <nav aria-label="Views">
+      <div><div class="label" style="padding:0 10px 6px">Views</div><div id="views"></div></div>
+      <div><div class="label" style="padding:0 10px 6px">Categories</div><div id="cats"></div></div>
+    </nav>
+    <main>
+      <div class="toolbar">
+        <strong style="font-size:15px">All torrents</strong><span style="color:var(--dim)">24 total, 1 selected</span>
+        <div style="margin-left:auto;display:flex;gap:6px"><button type="button">Pause</button><button type="button">Resume</button><button type="button" style="color:var(--bad)">Delete</button></div>
+      </div>
+      <div class="table">
+        <div class="row label"><span>Name</span><span>Progress</span><span class="r">Down</span><span class="r">Up</span><span class="r">ETA</span><span class="r">Ratio</span><span class="r">Peers</span></div>
+        <div id="rows"></div>
+      </div>
+    </main>
+    <aside aria-label="Selected torrent">
+      <div><div style="color:var(--dim);font-size:11px">radarr, requested by Radarr 2 h ago</div><h2>Sintel.2010.2160p.WEB</h2></div>
+      <div style="display:flex;align-items:baseline;gap:10px"><span class="num" style="font-size:36px;font-weight:500">65.9%</span><span style="color:var(--dim)">3.0 of 4.6 GiB, 3 min 27 s left</span></div>
+      <div><div style="color:var(--dim);font-size:11px;margin-bottom:6px">Pieces: 1,180 of 1,790</div><div class="pieces" id="pieces" role="img" aria-label="Piece map, 66 percent downloaded"></div></div>
+      <dl>
+        <dt>Download</dt><dd class="num">7.7 MiB/s</dd><dt>Upload</dt><dd class="num">429 KiB/s</dd>
+        <dt>Peers</dt><dd class="num">15 connected, 9 seeds</dd>
+        <dt>Save path</dt><dd class="num" style="word-break:break-all">/data/movies/Sintel (2010)</dd>
+      </dl>
+      <div><div style="color:var(--dim);font-size:11px;margin-bottom:6px">Files</div>
+        <div style="display:flex;justify-content:space-between"><span>Sintel.2010.2160p.WEB.mkv</span><span class="num" style="color:var(--dim)">4.5 GiB</span></div>
+        <div style="display:flex;justify-content:space-between"><span>Sintel.2010.en.srt</span><span class="num" style="color:var(--dim)">48 KiB</span></div></div>
+      <div style="display:flex;gap:8px;margin-top:auto"><button type="button" style="flex:1;padding:8px">Pause</button><button type="button" style="flex:1;padding:8px">Open folder</button></div>
+    </aside>
+  </div>
+  <footer class="num"><span>DHT 412 nodes</span><span>Listening on 6881, TCP and uTP</span><span>Bound to wg0</span><span>Disk 51.6 GiB free</span><span style="margin-left:auto">Sonarr and Radarr connected</span></footer>
+</div>
+<script>
+  const el = (id) => document.getElementById(id)
+  el("views").innerHTML = [["All",24,1],["Downloading",8],["Seeding",13],["Stalled",1],["Errored",1],["Paused",2]]
+    .map(([l,c,on]) => `<a href="#" class="${on?"on":""}"><span>${l}</span><span class="num">${c}</span></a>`).join("")
+  el("cats").innerHTML = [["tv-sonarr",4],["radarr",5],["linux",7],["datasets",4],["music",2],["software",2]]
+    .map(([l,c]) => `<a href="#"><span>${l}</span><span class="num">${c}</span></a>`).join("")
+  const data = [
+    ["ubuntu-26.04-desktop-amd64.iso","linux","downloading",.449,"10.2 MiB/s","681 KiB/s","5m 36s","0.04",42],
+    ["Sintel.2010.2160p.WEB","radarr","downloading",.659,"7.7 MiB/s","429 KiB/s","3m 27s","0.06",15,1],
+    ["openstreetmap-planet-261103.osm.pbf","datasets","downloading",.053,"15.9 MiB/s","1.1 MiB/s","1h 23m","0.01",58],
+    ["Fedora-Workstation-Live-x86_64-45.iso","linux","downloading",.814,"6.2 MiB/s","340 KiB/s","1m 9s","0.08",19],
+    ["The.Cisco.Kid.1950.S01E03.720p.WEB","tv-sonarr","downloading",.401,"2.4 MiB/s","88 KiB/s","2m 58s","0.03",7],
+    ["enwiki-20261101-pages-articles.xml","datasets","downloading",.299,"14.2 MiB/s","752 KiB/s","20m 41s","0.03",44],
+    ["Flash.Gordon.1954.S01E07.720p.WEB","tv-sonarr","stalled",.179,"—","—","—","0.02",0],
+    ["Cosmos.Laundromat.2015.1080p.WEB","radarr","downloading",.94,"3.1 MiB/s","153 KiB/s","33s","0.09",9],
+    ["debian-13.2.0-amd64-DVD-1.iso","linux","seeding",1,"—","1.2 MiB/s","—","1.74",21],
+    ["Night.of.the.Living.Dead.1968.1080p.BluRay","radarr","seeding",1,"—","640 KiB/s","—","1.25",11],
+    ["archlinux-2026.11.01-x86_64.iso","linux","seeding",1,"—","1.4 MiB/s","—","2.01",23],
+    ["Internet.Archive.Grateful.Dead.1977-05-08","music","error: disk full",.66,"—","—","—","0.02",0],
+    ["NixOS-26.05-gnome-x86_64.iso","linux","paused",1,"—","—","—","0.98",0],
+    ["common-voice-corpus-21.0-en","datasets","seeding",1,"—","310 KiB/s","—","1.02",8],
+  ]
+  const color = (s) => s.startsWith("error") ? "var(--bad)" : s === "seeding" ? "var(--up)" : (s === "paused" || s === "stalled") ? "var(--off)" : "var(--down)"
+  el("rows").innerHTML = data.map(([n,c,s,p,d,u,e,r,pe,sel]) => `<div class="row${sel?" sel":""}">
+      <span class="name"><b>${n}</b><small>${c}, ${s}</small></span>
+      <span style="display:flex;flex-direction:column;gap:3px"><span class="bar"><i style="width:${Math.max(2,p*100)}%;background:${color(s)}"></i></span><span class="num" style="font-size:11px;color:var(--dim)">${(Math.floor(p*1000)/10).toFixed(1)}%</span></span>
+      <span class="num r">${d}</span><span class="num r">${u}</span><span class="num r">${e}</span><span class="num r">${r}</span><span class="num r">${pe}</span></div>`).join("")
+  el("pieces").innerHTML = Array.from({length:216}, (_, i) => {
+    const have = i < 120 ? (i*7)%11 !== 3 : i < 150 ? (i*5)%7 < 3 : false
+    const active = !have && i >= 120 && i < 160 && i % 9 === 0
+    return `<span style="background:${have ? "var(--down)" : active ? "var(--brand)" : "var(--line)"}"></span>`
+  }).join("")
+</script>
+</body>
+</html>

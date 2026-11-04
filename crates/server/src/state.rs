@@ -40,6 +40,10 @@ pub struct AppState {
     /// Peer locations for the swarm map.
     pub geo: Arc<crate::geo::Geo>,
     pub peer_rates: crate::peermap::PeerRates,
+    /// The Usenet downloader.
+    pub usenet: swarmy_usenet::Downloader,
+    /// Demo mode's built-in mock Usenet server.
+    pub demo_usenet: Mutex<Option<swarmy_usenet::Server>>,
     /// Latest snapshot, refreshed every second by [`run_ticker`].
     pub snapshot: watch::Receiver<Arc<Snapshot>>,
 }

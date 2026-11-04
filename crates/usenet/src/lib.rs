@@ -6,6 +6,7 @@
 //! - [`downloader`]: the queue and connection pool.
 //! - [`post`]: repair, unpack and move finished downloads.
 
+pub mod demo;
 pub mod downloader;
 pub mod nntp;
 pub mod nzb;

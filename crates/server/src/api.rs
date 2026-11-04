@@ -58,7 +58,10 @@ pub fn router(state: Shared) -> Router<Shared> {
         .route("/geo/update", post(geo_update))
         .route_layer(middleware::from_fn_with_state(state, auth::require_session));
 
+    let protected = protected.merge(crate::usenet::router());
     Router::new()
+        // SABnzbd's API lives at /api itself; it checks its own key.
+        .route("/", get(crate::sab::api).post(crate::sab::api))
         .route("/auth/login", post(login))
         .route("/auth/logout", post(logout))
         .merge(protected)
@@ -66,7 +69,7 @@ pub fn router(state: Shared) -> Router<Shared> {
 
 // ---------- errors ----------
 
-pub struct ApiError(StatusCode, String);
+pub struct ApiError(pub StatusCode, pub String);
 
 impl ApiError {
     pub fn bad_request(msg: impl Into<String>) -> Self {
@@ -94,7 +97,7 @@ impl IntoResponse for ApiError {
     }
 }
 
-type ApiResult<T> = Result<T, ApiError>;
+pub type ApiResult<T> = Result<T, ApiError>;
 
 // ---------- auth ----------
 
@@ -213,8 +216,9 @@ async fn get_settings(State(state): State<Shared>) -> Json<serde_json::Value> {
     let (mut settings, sessions) = state.store.read(|d| (d.settings.clone(), d.sessions.len()));
     let restart_needed = connection_changed(&state, &settings);
     let api_key_set = !settings.webui.api_key_hash.is_empty();
-    // The browser never needs the key's hash.
+    // The browser never needs the key's hash, or Usenet server passwords.
     settings.webui.api_key_hash.clear();
+    crate::usenet::redact(&mut settings.usenet);
     Json(serde_json::json!({
         "settings": settings,
         "locked": state.locked,
@@ -246,8 +250,11 @@ fn connection_changed(state: &Shared, s: &crate::store::Settings) -> bool {
 
 async fn put_settings(
     State(state): State<Shared>,
-    Json(new): Json<crate::store::Settings>,
+    Json(mut new): Json<crate::store::Settings>,
 ) -> ApiResult<Json<serde_json::Value>> {
+    let old_usenet = state.store.read(|d| d.settings.usenet.clone());
+    crate::usenet::merge_and_validate(&mut new.usenet, &old_usenet).map_err(ApiError::bad_request)?;
+    let usenet_changed = serde_json::to_string(&new.usenet).ok() != serde_json::to_string(&old_usenet).ok();
     let c = &new.connection;
     if c.listen_port < 1024 {
         return Err(ApiError::bad_request("Pick a listening port of 1024 or higher."));
@@ -283,6 +290,9 @@ async fn put_settings(
         d.settings = new.clone();
         d.settings.webui.api_key_hash = key;
     })?;
+    if usenet_changed {
+        crate::usenet::apply(&state);
+    }
     if locations_changed {
         let geo = state.geo.clone();
         if new.peer_map.locations {

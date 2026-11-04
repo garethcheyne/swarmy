@@ -18,6 +18,7 @@ use std::{
     time::{Duration, Instant},
 };
 
+use anyhow::Context;
 use serde::{Deserialize, Serialize};
 use tokio::sync::{Notify, broadcast};
 
@@ -74,7 +75,7 @@ impl JobStatus {
 }
 
 /// What the UI and the SABnzbd API see.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct JobView {
     pub id: String,
     pub name: String,
@@ -289,8 +290,26 @@ impl Downloader {
 
     /// Queue an NZB. Returns the job id.
     pub fn add(&self, nzb_bytes: &[u8], name: Option<&str>, category: &str, priority: Priority) -> anyhow::Result<String> {
+        self.add_with_id(new_id(), nzb_bytes, name, category, priority, None)
+    }
+
+    /// Re-queue a job after a restart, keeping its id (Sonarr and Radarr
+    /// track it) and its folder. Parts already on disk are fetched again.
+    pub fn restore(&self, id: &str, name: &str, category: &str, priority: Priority, paused: bool) -> anyhow::Result<()> {
+        let dir = self.inner.incomplete_dir.lock().unwrap().join(id);
+        let nzb = std::fs::read(dir.join("job.nzb")).with_context(|| format!("reading the saved NZB for {name}"))?;
+        self.add_with_id(id.to_string(), &nzb, Some(name), category, priority, Some(added_at(&dir)))?;
+        if paused {
+            self.pause_job(id, true);
+        }
+        Ok(())
+    }
+
+    fn add_with_id(&self, id: String, nzb_bytes: &[u8], name: Option<&str>, category: &str, priority: Priority, added: Option<i64>) -> anyhow::Result<String> {
+        if !id.chars().all(|c| c.is_ascii_alphanumeric() || c == '_') {
+            anyhow::bail!("bad job id");
+        }
         let nzb = Nzb::parse(nzb_bytes)?;
-        let id = new_id();
         let name = name
             .map(|n| n.trim_end_matches(".nzb").to_string())
             .or_else(|| nzb.meta.get("title").cloned())
@@ -341,7 +360,7 @@ impl Downloader {
                 downloaded: 0,
                 missing: 0,
                 files: nzb.files.len() - recovery_count,
-                added: now(),
+                added: added.unwrap_or_else(now),
                 completed: None,
                 storage: None,
                 fail_message: None,
@@ -463,6 +482,15 @@ impl Downloader {
     pub fn restore_history(&self, history: Vec<JobView>) {
         *self.inner.history.lock().unwrap() = history;
     }
+}
+
+/// When a job folder was created, as a Unix time (for restored jobs).
+fn added_at(dir: &std::path::Path) -> i64 {
+    std::fs::metadata(dir)
+        .and_then(|m| m.created().or_else(|_| m.modified()))
+        .ok()
+        .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+        .map_or_else(now, |d| d.as_secs() as i64)
 }
 
 /// Try a server's connection: connect, sign in, and quit.
@@ -777,6 +805,9 @@ async fn post_process(inner: Arc<Inner>, id: String) {
     let event = match result {
         Ok(Ok(out)) => {
             job.view.status = JobStatus::Completed;
+            // The real size of what was delivered, not the estimate.
+            job.view.size = dir_size(&out.storage);
+            job.view.downloaded = job.view.size;
             job.view.storage = Some(out.storage);
             job.view.message = out.message;
             let _ = std::fs::remove_dir_all(&dir);
@@ -796,6 +827,14 @@ async fn post_process(inner: Arc<Inner>, id: String) {
     inner.history.lock().unwrap().insert(0, job.view);
     let _ = inner.events.send(event);
     inner.work.notify_waiters();
+}
+
+fn dir_size(p: &std::path::Path) -> u64 {
+    match std::fs::metadata(p) {
+        Ok(m) if m.is_file() => m.len(),
+        Ok(_) => std::fs::read_dir(p).map(|d| d.flatten().map(|e| dir_size(&e.path())).sum()).unwrap_or(0),
+        Err(_) => 0,
+    }
 }
 
 /// A token bucket for the download speed limit.

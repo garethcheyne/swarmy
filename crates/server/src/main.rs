@@ -9,10 +9,12 @@ mod policy;
 mod push;
 mod peermap;
 mod qbit;
+mod sab;
 mod state;
 mod stats;
 mod store;
 mod web;
+mod usenet;
 mod ws;
 
 use std::sync::Arc;
@@ -110,6 +112,13 @@ async fn main() -> anyhow::Result<()> {
 
     let (snap_tx, snap_rx) = watch::channel(Arc::new(Snapshot::default()));
     let geo = geo::Geo::new(&data_dir, cfg.demo)?;
+    // Usenet: dirs and servers are applied from settings in usenet::start.
+    let usenet = swarmy_usenet::Downloader::new(swarmy_usenet::Settings {
+        servers: Vec::new(),
+        incomplete_dir: data_dir.join("usenet-incomplete"),
+        complete_dir: download_dir.join("usenet"),
+        speed_limit: 0,
+    });
     let state = Arc::new(AppState {
         engine: engine.clone(),
         store,
@@ -126,6 +135,8 @@ async fn main() -> anyhow::Result<()> {
         demo: cfg.demo,
         geo,
         peer_rates: Default::default(),
+        usenet,
+        demo_usenet: Default::default(),
         snapshot: snap_rx,
     });
     // The peer-location database: fetched on first start, then kept current.
@@ -136,11 +147,14 @@ async fn main() -> anyhow::Result<()> {
         }));
     }
     tokio::spawn(state::run_ticker(state.clone(), snap_tx));
+    usenet::start(&state);
     tokio::spawn(stats::run_system_sampler(stats));
 
     let app = Router::new()
         // qBittorrent-compatible API for Sonarr, Radarr, Prowlarr and friends.
         .nest("/api/v2", qbit::router(state.clone()))
+        // SABnzbd-compatible API (Sonarr, Radarr). `/api` itself is in api::router.
+        .route("/sabnzbd/api", axum::routing::get(sab::api).post(sab::api))
         .nest("/api", api::router(state.clone()))
         .fallback(web::serve)
         .layer(CompressionLayer::new())

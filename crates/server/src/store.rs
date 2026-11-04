@@ -97,6 +97,39 @@ pub struct Settings {
     pub seeding: SeedingSettings,
     pub webui: WebUiSettings,
     pub peer_map: PeerMapSettings,
+    pub usenet: UsenetSettings,
+}
+
+/// Usenet downloading (NZB), SABnzbd-compatible.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct UsenetSettings {
+    /// Passwords are blanked when settings are read; an empty password on
+    /// save keeps the stored one for that server.
+    pub servers: Vec<swarmy_usenet::Server>,
+    /// Empty: `<download folder>/usenet`. Finished jobs go into
+    /// `<this>/<category>/<name>`.
+    pub complete_dir: String,
+    /// Empty: `<download folder>/usenet/incomplete`.
+    pub incomplete_dir: String,
+    /// KiB/s; 0 = no limit.
+    pub speed_limit: u64,
+    pub paused: bool,
+    /// Answer SABnzbd's API at /api and /sabnzbd/api (for Sonarr and Radarr).
+    pub sab_api: bool,
+}
+
+impl Default for UsenetSettings {
+    fn default() -> Self {
+        Self {
+            servers: Vec::new(),
+            complete_dir: String::new(),
+            incomplete_dir: String::new(),
+            speed_limit: 0,
+            paused: false,
+            sab_api: true,
+        }
+    }
 }
 
 /// The swarm map.
@@ -132,6 +165,7 @@ impl Default for Settings {
             seeding: SeedingSettings::default(),
             webui: WebUiSettings::default(),
             peer_map: PeerMapSettings::default(),
+            usenet: UsenetSettings::default(),
         }
     }
 }
@@ -380,6 +414,22 @@ pub struct StoreData {
     pub tags: BTreeSet<String>,
     #[serde(default)]
     pub torrents: BTreeMap<String, TorrentMeta>,
+    /// Usenet jobs still in the queue, restored on start (their NZBs are
+    /// kept in each job's incomplete folder).
+    #[serde(default)]
+    pub usenet_queue: Vec<QueuedJob>,
+    /// Finished Usenet jobs, newest first.
+    #[serde(default)]
+    pub usenet_history: Vec<swarmy_usenet::JobView>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct QueuedJob {
+    pub id: String,
+    pub name: String,
+    pub category: String,
+    pub priority: swarmy_usenet::Priority,
+    pub paused: bool,
 }
 
 pub struct Store {

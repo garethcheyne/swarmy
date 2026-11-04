@@ -14,6 +14,7 @@ futures = "0.3.34"
 mime_guess = "2.0.5"
 rand = "0.10.3"
 swarmy-engine = { version = "0.1.0", path = "../engine" }
+swarmy-usenet = { path = "../usenet" }
 rusqlite = { version = "0.41.1", features = ["bundled"] }
 rust-embed = "8.13.0"
 serde = { version = "1.0.229", features = ["derive"] }

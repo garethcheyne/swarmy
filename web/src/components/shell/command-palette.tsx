@@ -12,6 +12,7 @@ import {
   SettingsIcon,
   SparklesIcon,
   EarthIcon,
+  NewspaperIcon,
 } from "lucide-react"
 
 import type { Torrent } from "@/lib/api"
@@ -42,6 +43,7 @@ interface Props {
   onNotifications: () => void
   onAppearance: () => void
   onWhatsNew: () => void
+  onAddNzb: () => void
   onFloat: () => void
   onFilter: (f: Filter) => void
   onSelect: (hash: string) => void
@@ -69,6 +71,7 @@ export function CommandPalette({
   onNotifications,
   onAppearance,
   onWhatsNew,
+  onAddNzb,
   onFloat,
   onFilter,
   onSelect,
@@ -94,6 +97,10 @@ export function CommandPalette({
               <PlusIcon />
               Add torrent
               <CommandShortcut>N</CommandShortcut>
+            </CommandItem>
+            <CommandItem onSelect={run(onAddNzb)}>
+              <NewspaperIcon />
+              Add NZB
             </CommandItem>
             <CommandItem onSelect={run(onPauseAll)}>
               <PauseIcon />
@@ -129,6 +136,10 @@ export function CommandPalette({
             <CommandItem onSelect={run(goTorrents)}>
               <ListIcon />
               Torrents
+            </CommandItem>
+            <CommandItem onSelect={run(() => navigate("usenet"))}>
+              <NewspaperIcon />
+              Usenet
             </CommandItem>
             <CommandItem onSelect={run(() => navigate("statistics"))}>
               <ChartColumnIcon />

@@ -17,6 +17,8 @@ The first Swarmy: a BitTorrent client with a web UI you'd actually want to look 
 - A fast BitTorrent engine (librqbit) with DHT, local peer discovery, UPnP port forwarding, magnet links and `.torrent` files.
 - Works with Sonarr, Radarr and Prowlarr: add Swarmy as a qBittorrent download client and they won't know the difference.
 - A dense, keyboard-friendly torrent table, with an inspector showing each torrent's files, peers, category, tags and a live piece map.
+- Usenet: download NZBs from your news server, with backup servers for missing articles, automatic PAR2 repair, RAR and 7z unpacking, and a queue that survives restarts.
+- Works with Sonarr and Radarr for Usenet too: add Swarmy as a SABnzbd download client.
 - Statistics: throughput, daily volume, busiest hours, ratio and disk space, recorded over time.
 - Speed limits, an alternative "turtle" speed and a schedule for it.
 - Queueing, force start, and seeding limits by ratio, seeding time or inactivity, globally or per torrent.

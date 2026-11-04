@@ -266,6 +266,48 @@ export function IntegrationsSection({
           </section>
         </>
       )}
+
+      {draft.usenet.sab_api && (
+        <section className="flex flex-col gap-4">
+          <div className="flex flex-col gap-1">
+            <h3 className="text-[13px] font-semibold">Usenet: connect them as SABnzbd</h3>
+            <p className="text-[13px] text-muted-foreground">
+              Swarmy also speaks SABnzbd's API, so Sonarr and Radarr can send it NZBs. Set up a Usenet server first, in Settings, Usenet.
+            </p>
+          </div>
+          <ol className="flex list-decimal flex-col gap-4 pl-5 text-[13px] marker:text-muted-foreground">
+            <li>In Sonarr or Radarr, open Settings, then Download Clients, and add SABnzbd.</li>
+            <li>
+              <div className="flex flex-col gap-3">
+                <span>Fill it in like this:</span>
+                <dl className="grid grid-cols-[7rem_minmax(0,1fr)] items-center gap-x-3 gap-y-2">
+                  <dt className="text-muted-foreground">Host</dt>
+                  <dd className="m-0">
+                    <CopyValue label="Host" value={location.hostname} />
+                  </dd>
+                  <dt className="text-muted-foreground">Port</dt>
+                  <dd className="m-0">
+                    <CopyValue label="Port" value={port} />
+                  </dd>
+                  <dt className="text-muted-foreground">Use SSL</dt>
+                  <dd className="m-0">{https ? "On" : "Off"}</dd>
+                  <dt className="text-muted-foreground">URL base</dt>
+                  <dd className="m-0">
+                    <span className="data">sabnzbd</span>, or leave it empty
+                  </dd>
+                  <dt className="text-muted-foreground">API key</dt>
+                  <dd className="m-0">The API key above (SABnzbd clients need one)</dd>
+                  <dt className="text-muted-foreground">Category</dt>
+                  <dd className="m-0">
+                    <span className="data">tv</span> in Sonarr, <span className="data">movies</span> in Radarr. Finished downloads land in a folder named after it.
+                  </dd>
+                </dl>
+              </div>
+            </li>
+            <li>Choose Test, then Save.</li>
+          </ol>
+        </section>
+      )}
     </div>
   )
 }

@@ -8,7 +8,7 @@ import {
 } from "lucide-react"
 import { toast } from "sonner"
 
-import { api, UnauthorizedError, type Category, type ServerInfo, type Settings, type SettingsResponse, type GeoStatus } from "@/lib/api"
+import { api, UnauthorizedError, type Category, type ServerInfo, type Settings, type SettingsResponse, type GeoStatus, type UsenetServer } from "@/lib/api"
 import { usePoll } from "@/lib/use-poll"
 import { cn } from "@/lib/utils"
 import type { HelpId } from "@/lib/settings-help"
@@ -529,6 +529,8 @@ export function SettingsPage({ onSignedOut }: { onSignedOut: () => void }) {
                 </Section>
               )}
 
+              {section === "usenet" && <UsenetSection draft={draft} set={set} saved={server.settings.usenet} />}
+
               {section === "categories" && <CategoriesAndTags />}
 
               {section === "security" && (
@@ -876,6 +878,172 @@ function SecuritySection({
               One address or IPv4 range per line, like 127.0.0.1 or 10.0.0.0/8. Requests from these may set X-Forwarded-For and X-Forwarded-Proto, so lockouts apply to the real visitor and sign-in cookies are marked secure behind HTTPS.
             </FieldDescription>
           </Field>
+        </FieldGroup>
+      </Section>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------- usenet
+
+const newServerId = () => Math.random().toString(36).slice(2, 10)
+
+function UsenetSection({
+  draft,
+  set,
+  saved,
+}: {
+  draft: Settings
+  set: <K extends keyof Settings>(key: K, patch: Partial<Settings[K]>) => void
+  saved: Settings["usenet"]
+}) {
+  const u = draft.usenet
+  const [tests, setTests] = useState<Record<string, { busy: boolean; ok?: boolean; message?: string }>>({})
+  const setServers = (servers: UsenetServer[]) => set("usenet", { servers })
+  const update = (id: string, patch: Partial<UsenetServer>) => setServers(u.servers.map((s) => (s.id === id ? { ...s, ...patch } : s)))
+  const add = () =>
+    setServers([
+      ...u.servers,
+      { id: newServerId(), name: "", enabled: true, priority: u.servers.length ? Math.max(...u.servers.map((s) => s.priority)) + 1 : 0, host: "", port: 563, tls: true, username: "", password: "", connections: 20 },
+    ])
+  const test = async (srv: UsenetServer) => {
+    setTests((t) => ({ ...t, [srv.id]: { busy: true } }))
+    try {
+      const r = await api.usenetTestServer(srv)
+      setTests((t) => ({ ...t, [srv.id]: { busy: false, ok: r.ok, message: r.message } }))
+    } catch (e) {
+      setTests((t) => ({ ...t, [srv.id]: { busy: false, ok: false, message: e instanceof Error ? e.message : String(e) } }))
+    }
+  }
+
+  return (
+    <div className="flex max-w-2xl flex-col gap-10">
+      <Section
+        title="Usenet servers"
+        description="Where NZB downloads come from: your Usenet provider's news server. Add backups (a second provider, or a block account) to fill in articles the main server is missing."
+      >
+        {u.servers.length === 0 && <p className="text-[13px] text-muted-foreground">No servers yet. Your provider's welcome email lists the address, port and login.</p>}
+        <div className="flex flex-col gap-4">
+          {u.servers.map((srv) => {
+            const t = tests[srv.id]
+            const isSaved = saved.servers.some((o) => o.id === srv.id)
+            return (
+              <div key={srv.id} className="flex flex-col gap-4 rounded-lg border p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <Switch id={`srv-on-${srv.id}`} checked={srv.enabled} onCheckedChange={(v) => update(srv.id, { enabled: v })} aria-label="Use this server" />
+                    <span className="text-[13px] font-semibold">{srv.name || srv.host || "New server"}</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Button size="sm" variant="outline" disabled={!srv.host || t?.busy} onClick={() => test(srv)}>
+                      {t?.busy && <Spinner data-icon="inline-start" />}
+                      Test
+                    </Button>
+                    <Button size="icon-sm" variant="ghost" aria-label={`Remove ${srv.name || srv.host || "server"}`} onClick={() => setServers(u.servers.filter((s) => s.id !== srv.id))}>
+                      <Trash2Icon />
+                    </Button>
+                  </div>
+                </div>
+                {t && !t.busy && (
+                  <p className={cn("text-[13px]", t.ok ? "text-up" : "text-destructive")}>{t.ok ? `${t.message}.` : t.message}</p>
+                )}
+                <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_7rem]">
+                  <Field>
+                    <HelpLabel htmlFor={`srv-host-${srv.id}`} help="usenet_host">
+                      Address
+                    </HelpLabel>
+                    <Input id={`srv-host-${srv.id}`} className="data" placeholder="news.example.com" value={srv.host} onChange={(e) => update(srv.id, { host: e.target.value })} />
+                  </Field>
+                  <Field>
+                    <FieldLabel htmlFor={`srv-port-${srv.id}`}>Port</FieldLabel>
+                    <NumberInput id={`srv-port-${srv.id}`} className="w-full" min={1} max={65535} value={srv.port} onChange={(v) => update(srv.id, { port: Math.round(v) })} />
+                  </Field>
+                </div>
+                <SwitchRow
+                  id={`srv-tls-${srv.id}`}
+                  help="usenet_tls"
+                  label="Use SSL"
+                  description="Encrypts the connection, usually on port 563. Leave it on unless your provider says otherwise."
+                  checked={srv.tls}
+                  onChange={(v) => update(srv.id, { tls: v, port: v && srv.port === 119 ? 563 : !v && srv.port === 563 ? 119 : srv.port })}
+                />
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field>
+                    <FieldLabel htmlFor={`srv-user-${srv.id}`}>Username</FieldLabel>
+                    <Input id={`srv-user-${srv.id}`} autoComplete="off" value={srv.username} onChange={(e) => update(srv.id, { username: e.target.value })} />
+                  </Field>
+                  <Field>
+                    <FieldLabel htmlFor={`srv-pass-${srv.id}`}>Password</FieldLabel>
+                    <Input
+                      id={`srv-pass-${srv.id}`}
+                      type="password"
+                      autoComplete="new-password"
+                      placeholder={isSaved ? "Saved; leave empty to keep it" : ""}
+                      value={srv.password}
+                      onChange={(e) => update(srv.id, { password: e.target.value })}
+                    />
+                  </Field>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <Field>
+                    <HelpLabel htmlFor={`srv-conn-${srv.id}`} help="usenet_connections">
+                      Connections
+                    </HelpLabel>
+                    <NumberInput id={`srv-conn-${srv.id}`} className="w-full" min={1} max={200} value={srv.connections} onChange={(v) => update(srv.id, { connections: Math.min(200, Math.max(1, Math.round(v))) })} />
+                  </Field>
+                  <Field>
+                    <HelpLabel htmlFor={`srv-prio-${srv.id}`} help="usenet_priority">
+                      Order
+                    </HelpLabel>
+                    <NumberInput id={`srv-prio-${srv.id}`} className="w-full" min={0} max={99} value={srv.priority} onChange={(v) => update(srv.id, { priority: Math.max(0, Math.round(v)) })} />
+                  </Field>
+                  <Field>
+                    <FieldLabel htmlFor={`srv-name-${srv.id}`}>Name</FieldLabel>
+                    <Input id={`srv-name-${srv.id}`} placeholder="Optional" value={srv.name} onChange={(e) => update(srv.id, { name: e.target.value })} />
+                  </Field>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+        <div>
+          <Button variant="outline" onClick={add}>
+            <PlusIcon data-icon="inline-start" />
+            Add a server
+          </Button>
+        </div>
+      </Section>
+
+      <Section title="Downloads" description="Where Usenet downloads are assembled, and where they go when they're done.">
+        <FieldGroup>
+          <Field>
+            <HelpLabel htmlFor="nzb-complete" help="usenet_complete_dir">
+              Finished downloads
+            </HelpLabel>
+            <Input id="nzb-complete" className="data" placeholder="<download folder>/usenet" value={u.complete_dir} onChange={(e) => set("usenet", { complete_dir: e.target.value })} />
+            <FieldDescription>Each download gets its own folder, inside a folder for its category. Leave empty for the default.</FieldDescription>
+          </Field>
+          <Field>
+            <HelpLabel htmlFor="nzb-incomplete" help="usenet_incomplete_dir">
+              Unfinished downloads
+            </HelpLabel>
+            <Input id="nzb-incomplete" className="data" placeholder="<download folder>/usenet/incomplete" value={u.incomplete_dir} onChange={(e) => set("usenet", { incomplete_dir: e.target.value })} />
+          </Field>
+          <Field>
+            <HelpLabel htmlFor="nzb-speed" help="usenet_speed">
+              Speed limit
+            </HelpLabel>
+            <NumberInput id="nzb-speed" unit="KiB/s" value={u.speed_limit} onChange={(v) => set("usenet", { speed_limit: Math.max(0, Math.round(v)) })} />
+            <FieldDescription>Separate from the torrent limits. 0 for no limit.</FieldDescription>
+          </Field>
+          <SwitchRow
+            id="sab-api"
+            help="sab_api"
+            label="SABnzbd-compatible API"
+            description="Lets Sonarr and Radarr send NZBs to Swarmy as if it were SABnzbd. See Settings, Sonarr and Radarr."
+            checked={u.sab_api}
+            onChange={(v) => set("usenet", { sab_api: v })}
+          />
         </FieldGroup>
       </Section>
     </div>

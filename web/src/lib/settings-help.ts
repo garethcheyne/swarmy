@@ -182,6 +182,52 @@ export const SETTINGS_HELP = {
     effect: "Lookups happen on your server and peer addresses are never sent anywhere. Turning it off releases the database and stops the monthly download.",
     tip: "Locations are approximate, typically to the city. Peers behind a VPN show the VPN's location.",
   },
+  usenet_host: {
+    title: "News server address",
+    what: "The address of your Usenet provider's news server, such as news.example.com. It's in your provider's welcome email or account page.",
+    effect: "Swarmy connects here to download articles. Providers often have regional addresses (eu., us.); pick the one nearest you.",
+  },
+  usenet_tls: {
+    title: "SSL",
+    what: "Encrypts the connection to the news server, so your internet provider can't see what you download.",
+    effect: "Almost every provider supports it, usually on port 563 (some also on 443). Without it the port is usually 119.",
+    tip: "Leave it on. The cost in speed is negligible.",
+  },
+  usenet_connections: {
+    title: "Connections",
+    what: "How many connections to this server Swarmy opens at once. Each one downloads a different article.",
+    effect: "More connections usually means more speed, up to your line's limit. Going over your provider's maximum gets connections refused.",
+    tip: "Your plan says how many you're allowed, often 20 to 100. Start at 20 and raise it if downloads don't fill your connection.",
+  },
+  usenet_priority: {
+    title: "Server order",
+    what: "Which servers are tried first. 0 is the main server; servers with a higher number are backups.",
+    effect: "Every article is tried on the main servers. Only articles they don't have are tried on the backups, in order, so a backup block account is barely used.",
+    tip: "Servers with the same number share the work equally.",
+  },
+  usenet_complete_dir: {
+    title: "Finished downloads folder",
+    what: "Where Usenet downloads go once they're repaired and unpacked: <this folder>/<category>/<download name>.",
+    effect: "Sonarr and Radarr import from here. Changing it only affects new downloads.",
+    tip: "Put it on the same drive as your library, so imports are instant moves or hardlinks instead of copies. In Docker it's a path inside the container.",
+  },
+  usenet_incomplete_dir: {
+    title: "Unfinished downloads folder",
+    what: "Where articles are assembled while downloading, before repair and unpacking.",
+    effect: "It needs room for the downloads in progress. When a download finishes it's moved out of here.",
+    tip: "The same drive as the finished folder makes that move instant.",
+  },
+  usenet_speed: {
+    title: "Usenet speed limit",
+    what: "The most Swarmy downloads per second from Usenet, across all servers. 0 means no limit.",
+    effect: "Usenet downloads usually run as fast as your connection allows, which can crowd out everything else. This leaves room.",
+    tip: "1024 KiB/s is 1 MiB/s. Torrents have their own limits under Speed.",
+  },
+  sab_api: {
+    title: "SABnzbd-compatible API",
+    what: "Answers the same web API as SABnzbd, the most common Usenet downloader, at /api and /sabnzbd/api.",
+    effect: "Sonarr, Radarr and similar tools can add NZBs and track them, choosing SABnzbd as the download client. It needs the API key from Settings, Sonarr and Radarr.",
+  },
 } satisfies Record<string, HelpTopic>
 
 export type HelpId = keyof typeof SETTINGS_HELP

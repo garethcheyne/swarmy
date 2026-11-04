@@ -10,6 +10,7 @@ import { hashParam, navigate, useRoute } from "@/lib/route"
 import { usePoll } from "@/lib/use-poll"
 import { compareVersions, markSeen, seenVersion } from "@/lib/version"
 import { AddTorrentDialog, type AddPrefill } from "@/components/add-torrent-dialog"
+import { AddNzbDialog } from "@/components/add-nzb-dialog"
 import { AppearanceDialog } from "@/components/appearance-dialog"
 import { DeleteDialog } from "@/components/delete-dialog"
 import { Login } from "@/components/login"
@@ -28,6 +29,7 @@ import { Toaster } from "@/components/ui/sonner"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { SettingsPage } from "@/pages/settings"
 import { StatisticsPage } from "@/pages/statistics"
+import { UsenetPage } from "@/pages/usenet"
 const PeersPage = lazy(() => import("@/pages/peers").then((m) => ({ default: m.PeersPage })))
 import { TorrentsPage } from "@/pages/torrents"
 
@@ -87,6 +89,14 @@ function Shell({ onSignedOut }: { onSignedOut: () => void }) {
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [deleteKey, setDeleteKey] = useState(0)
   const [deleteTargets, setDeleteTargets] = useState<string[]>([])
+  const [nzbOpen, setNzbOpen] = useState(false)
+  const [nzbKey, setNzbKey] = useState(0)
+  const [nzbFiles, setNzbFiles] = useState<File[]>([])
+  const openNzb = useCallback((files: File[] = []) => {
+    setNzbFiles(files)
+    setNzbKey((k) => k + 1)
+    setNzbOpen(true)
+  }, [])
 
   // "What's new": shown once after an upgrade (this browser last saw an
   // older version), or opened by hand from the status bar, palette or About.
@@ -178,11 +188,16 @@ function Shell({ onSignedOut }: { onSignedOut: () => void }) {
       if (e.dataTransfer?.types.includes("Files")) e.preventDefault()
     }
     const onDrop = (e: DragEvent) => {
-      if (addOpen) return
-      const files = [...(e.dataTransfer?.files ?? [])].filter((f) => f.name.endsWith(".torrent"))
+      if (addOpen || nzbOpen) return
+      const dropped = [...(e.dataTransfer?.files ?? [])]
+      const files = dropped.filter((f) => f.name.endsWith(".torrent"))
+      const nzbs = dropped.filter((f) => f.name.toLowerCase().endsWith(".nzb"))
       if (files.length) {
         e.preventDefault()
         openAdd({ files })
+      } else if (nzbs.length) {
+        e.preventDefault()
+        openNzb(nzbs)
       }
     }
     const onKey = (e: KeyboardEvent) => {
@@ -207,7 +222,7 @@ function Shell({ onSignedOut }: { onSignedOut: () => void }) {
       window.removeEventListener("drop", onDrop)
       window.removeEventListener("keydown", onKey)
     }
-  }, [addOpen, openAdd])
+  }, [addOpen, openAdd, nzbOpen, openNzb])
 
   const run = useCallback(
     async (label: string, fn: () => Promise<void>) => {
@@ -332,6 +347,10 @@ function Shell({ onSignedOut }: { onSignedOut: () => void }) {
             <div className="h-full overflow-auto">
               <StatisticsPage />
             </div>
+          ) : route === "usenet" ? (
+            <div className="h-full overflow-auto">
+              <UsenetPage onAdd={() => openNzb()} />
+            </div>
           ) : route === "peers" ? (
             <div className="h-full overflow-auto">
               <Suspense fallback={null}>
@@ -379,6 +398,7 @@ function Shell({ onSignedOut }: { onSignedOut: () => void }) {
         onNotifications={openNotifications}
         onAppearance={() => setAppearanceOpen(true)}
         onWhatsNew={() => setNotesOpen(true)}
+        onAddNzb={() => openNzb()}
         onFloat={floatMini}
         onFilter={setFilter}
         onSelect={setFocused}
@@ -390,6 +410,7 @@ function Shell({ onSignedOut }: { onSignedOut: () => void }) {
         onOpenChange={(o) => (o ? setNotesOpen(true) : closeNotes())}
       />
       <NotificationsDialog key={notifyKey} open={notifyOpen} onOpenChange={setNotifyOpen} />
+      <AddNzbDialog key={nzbKey} open={nzbOpen} onOpenChange={setNzbOpen} categories={categories} initialFiles={nzbFiles} />
       <AddTorrentDialog key={addKey} open={addOpen} onOpenChange={setAddOpen} categories={categories} prefill={addPrefill} />
       <DeleteDialog
         key={deleteKey}

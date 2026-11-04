@@ -398,7 +398,10 @@ async fn test_server(State(state): State<Shared>, Json(mut server): Json<Server>
         }
     }
     match tokio::time::timeout(Duration::from_secs(30), swarmy_usenet::downloader::test_server(&server.config)).await {
-        Ok(Ok(())) => Json(TestResult { ok: true, message: "Connected and signed in".into() }),
+        Ok(Ok(())) => Json(TestResult {
+            ok: true,
+            message: if server.config.username.is_empty() { "Connected".into() } else { "Connected and signed in".into() },
+        }),
         Ok(Err(e)) => Json(TestResult { ok: false, message: e.to_string() }),
         Err(_) => Json(TestResult { ok: false, message: "The server didn't answer in time".into() }),
     }

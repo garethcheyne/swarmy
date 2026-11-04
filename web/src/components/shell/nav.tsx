@@ -9,6 +9,7 @@ import {
   SettingsIcon,
   SunIcon,
   type LucideIcon,
+  NewspaperIcon,
 } from "lucide-react"
 
 import type { LiveSample, Torrent } from "@/lib/api"
@@ -199,6 +200,7 @@ export function Nav({
     <nav aria-label="Swarmy" className="flex h-full flex-col gap-4 overflow-y-auto bg-sidebar p-2 pt-3 text-[13px]">
       <div className="flex flex-col gap-0.5">
         <PageLink to="torrents" route={route} icon={ListIcon} label="Torrents" count={torrents.length} onNavigate={onNavigate} />
+        <PageLink to="usenet" route={route} icon={NewspaperIcon} label="Usenet" onNavigate={onNavigate} />
         <PageLink to="statistics" route={route} icon={ChartColumnIcon} label="Statistics" onNavigate={onNavigate} />
         <PageLink to="peers" route={route} icon={EarthIcon} label="Swarm map" onNavigate={onNavigate} />
       </div>

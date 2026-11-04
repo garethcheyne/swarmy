@@ -188,6 +188,80 @@ export interface Settings {
     api_key_hash: string
   }
   peer_map: { locations: boolean; home: GeoPoint | null }
+  usenet: UsenetSettings
+}
+
+export interface UsenetServer {
+  id: string
+  name: string
+  enabled: boolean
+  /** 0 = main; higher numbers are backups, tried for articles the main ones lack. */
+  priority: number
+  host: string
+  port: number
+  tls: boolean
+  username: string
+  /** Always empty when read back; send empty to keep the saved one. */
+  password: string
+  connections: number
+}
+
+export interface UsenetSettings {
+  servers: UsenetServer[]
+  complete_dir: string
+  incomplete_dir: string
+  /** KiB/s, 0 = no limit. */
+  speed_limit: number
+  paused: boolean
+  sab_api: boolean
+}
+
+export type UsenetStatus =
+  | "queued"
+  | "downloading"
+  | "paused"
+  | "fetching"
+  | "verifying"
+  | "repairing"
+  | "extracting"
+  | "moving"
+  | "completed"
+  | "failed"
+
+export type UsenetPriority = "low" | "normal" | "high" | "force"
+
+export interface UsenetJob {
+  id: string
+  name: string
+  category: string
+  priority: UsenetPriority
+  status: UsenetStatus
+  size: number
+  downloaded: number
+  missing: number
+  files: number
+  added: number
+  completed: number | null
+  storage: string | null
+  fail_message: string | null
+  message: string | null
+}
+
+export interface UsenetServerStatus {
+  id: string
+  connections: number
+  downloaded: number
+  error: string | null
+}
+
+export interface UsenetOverview {
+  paused: boolean
+  speed: number
+  remaining: number
+  queue: UsenetJob[]
+  history: UsenetJob[]
+  servers: UsenetServerStatus[]
+  complete_dir: string
 }
 
 export interface GeoPoint {
@@ -315,6 +389,17 @@ export const api = {
 
   info: () => request<ServerInfo>("/info"),
   changelog: () => request<Changelog>("/changelog"),
+  usenet: () => request<UsenetOverview>("/usenet"),
+  usenetAdd: (form: FormData) => request<string[]>("/usenet/add", { method: "POST", body: form }),
+  usenetPauseAll: (paused: boolean) => request<boolean>("/usenet/pause", json({ paused })),
+  usenetPause: (id: string) => request<void>(`/usenet/jobs/${encodeURIComponent(id)}/pause`, { method: "POST" }),
+  usenetResume: (id: string) => request<void>(`/usenet/jobs/${encodeURIComponent(id)}/resume`, { method: "POST" }),
+  usenetMove: (id: string, index: number) => request<number>(`/usenet/jobs/${encodeURIComponent(id)}/move`, json({ index })),
+  usenetRemove: (id: string) => request<void>(`/usenet/jobs/${encodeURIComponent(id)}`, { method: "DELETE" }),
+  usenetRemoveHistory: (id: string, deleteFiles: boolean) =>
+    request<void>(`/usenet/history/${encodeURIComponent(id)}?delete_files=${deleteFiles}`, { method: "DELETE" }),
+  usenetClearHistory: () => request<void>("/usenet/history", { method: "DELETE" }),
+  usenetTestServer: (s: UsenetServer) => request<{ ok: boolean; message: string }>("/usenet/servers/test", json(s)),
   peers: (hash?: string | null) => request<PeerMap>(`/peers${hash ? `?hash=${encodeURIComponent(hash)}` : ""}`),
   geo: () => request<GeoStatus>("/geo"),
   geoUpdate: () => request<void>("/geo/update", { method: "POST" }),

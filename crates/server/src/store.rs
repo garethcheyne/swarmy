@@ -96,6 +96,30 @@ pub struct Settings {
     pub queue: QueueSettings,
     pub seeding: SeedingSettings,
     pub webui: WebUiSettings,
+    pub peer_map: PeerMapSettings,
+}
+
+/// The swarm map.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct PeerMapSettings {
+    /// Download and use the IP location database (and keep it up to date).
+    pub locations: bool,
+    /// Where this Swarmy is, for drawing flows; `None` lets the browser guess
+    /// from its time zone.
+    pub home: Option<Home>,
+}
+
+impl Default for PeerMapSettings {
+    fn default() -> Self {
+        Self { locations: true, home: None }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub struct Home {
+    pub lat: f64,
+    pub lon: f64,
 }
 
 impl Default for Settings {
@@ -107,6 +131,7 @@ impl Default for Settings {
             queue: QueueSettings::default(),
             seeding: SeedingSettings::default(),
             webui: WebUiSettings::default(),
+            peer_map: PeerMapSettings::default(),
         }
     }
 }

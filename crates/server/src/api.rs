@@ -53,6 +53,9 @@ pub fn router(state: Shared) -> Router<Shared> {
         .route("/stats/events", get(stats_events))
         .route("/info", get(info))
         .route("/changelog", get(changelog))
+        .route("/peers", get(peer_map))
+        .route("/geo", get(geo_status))
+        .route("/geo/update", post(geo_update))
         .route_layer(middleware::from_fn_with_state(state, auth::require_session));
 
     Router::new()
@@ -268,12 +271,26 @@ async fn put_settings(
     if new.webui.session_days == 0 || new.webui.session_days > 365 {
         return Err(ApiError::bad_request("Keep people signed in for between 1 and 365 days."));
     }
+    if let Some(h) = new.peer_map.home
+        && !((-90.0..=90.0).contains(&h.lat) && (-180.0..=180.0).contains(&h.lon))
+    {
+        return Err(ApiError::bad_request("That location isn't on the map."));
+    }
+    let locations_changed = new.peer_map.locations != state.store.read(|d| d.settings.peer_map.locations);
     let queue_turned_off = !new.queue.enabled && state.store.read(|d| d.settings.queue.enabled);
     state.store.update(|d| {
         let key = std::mem::take(&mut d.settings.webui.api_key_hash);
         d.settings = new.clone();
         d.settings.webui.api_key_hash = key;
     })?;
+    if locations_changed {
+        let geo = state.geo.clone();
+        if new.peer_map.locations {
+            tokio::spawn(async move { geo.refresh().await });
+        } else {
+            geo.disable();
+        }
+    }
     // Turning the queue off releases everything it was holding.
     if queue_turned_off {
         let held: Vec<String> = state.store.read(|d| {
@@ -671,6 +688,33 @@ async fn info(State(state): State<Shared>) -> Json<serde_json::Value> {
         "download_dir": state.download_dir(),
         "network": state.engine.network(),
     }))
+}
+
+#[derive(Deserialize)]
+struct PeerMapQuery {
+    hash: Option<String>,
+}
+
+async fn peer_map(
+    State(state): State<Shared>,
+    Query(q): Query<PeerMapQuery>,
+) -> Json<crate::peermap::PeerMap> {
+    let hash = q.hash.filter(|h| !h.is_empty());
+    Json(crate::peermap::build(&state, hash.as_deref()))
+}
+
+async fn geo_status(State(state): State<Shared>) -> Json<crate::geo::GeoStatus> {
+    Json(state.geo.status())
+}
+
+/// "Check for an update now": runs in the background; poll /api/geo.
+async fn geo_update(State(state): State<Shared>) -> ApiResult<StatusCode> {
+    if !state.store.read(|d| d.settings.peer_map.locations) {
+        return Err(ApiError::bad_request("Peer locations are switched off in Settings."));
+    }
+    let geo = state.geo.clone();
+    tokio::spawn(async move { geo.refresh().await });
+    Ok(StatusCode::ACCEPTED)
 }
 
 async fn changelog() -> Json<serde_json::Value> {

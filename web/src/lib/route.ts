@@ -1,8 +1,8 @@
 import { useSyncExternalStore } from "react"
 
-export type Route = "torrents" | "statistics" | "settings" | "mini"
+export type Route = "torrents" | "statistics" | "peers" | "settings" | "mini"
 
-const ROUTES: Route[] = ["torrents", "statistics", "settings", "mini"]
+const ROUTES: Route[] = ["torrents", "statistics", "peers", "settings", "mini"]
 
 function current(): Route {
   const r = location.hash.replace(/^#\/?/, "").split("?")[0] as Route
@@ -28,6 +28,7 @@ export function href(r: Route) {
   return `#/${r === "torrents" ? "" : r}`
 }
 
-export function navigate(r: Route) {
-  location.hash = href(r)
+export function navigate(r: Route, params?: Record<string, string>) {
+  const q = params ? `?${new URLSearchParams(params)}` : ""
+  location.hash = `${href(r)}${q}`
 }

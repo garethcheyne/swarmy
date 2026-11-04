@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState, lazy, Suspense } from "react"
 import { createRoot, type Root } from "react-dom/client"
 import { toast } from "sonner"
 
@@ -28,6 +28,7 @@ import { Toaster } from "@/components/ui/sonner"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { SettingsPage } from "@/pages/settings"
 import { StatisticsPage } from "@/pages/statistics"
+const PeersPage = lazy(() => import("@/pages/peers").then((m) => ({ default: m.PeersPage })))
 import { TorrentsPage } from "@/pages/torrents"
 
 type AuthState = "checking" | "signed-out" | "signed-in"
@@ -332,6 +333,12 @@ function Shell({ onSignedOut }: { onSignedOut: () => void }) {
           ) : route === "statistics" ? (
             <div className="h-full overflow-auto">
               <StatisticsPage />
+            </div>
+          ) : route === "peers" ? (
+            <div className="h-full overflow-auto">
+              <Suspense fallback={null}>
+                <PeersPage torrents={torrents} />
+              </Suspense>
             </div>
           ) : (
             <TorrentsPage

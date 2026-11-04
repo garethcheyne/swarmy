@@ -6,6 +6,7 @@ import {
   PaletteIcon,
   SettingsIcon,
   SunIcon,
+  EarthIcon,
 } from "lucide-react"
 
 import type { LiveSample, Torrent } from "@/lib/api"
@@ -146,6 +147,18 @@ export function Nav({
         >
           <ChartColumnIcon className="size-4" />
           Statistics
+        </a>
+        <a
+          href={href("peers")}
+          onClick={() => onNavigate?.()}
+          aria-current={route === "peers" ? "page" : undefined}
+          className={cn(
+            "flex min-h-8 items-center gap-2 rounded-md px-2.5 text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+            route === "peers" && "bg-sidebar-accent text-sidebar-accent-foreground"
+          )}
+        >
+          <EarthIcon className="size-4" />
+          Swarm map
         </a>
         <a
           href={href("settings")}

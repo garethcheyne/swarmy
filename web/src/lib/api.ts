@@ -187,6 +187,43 @@ export interface Settings {
     qbit_api: boolean
     api_key_hash: string
   }
+  peer_map: { locations: boolean; home: GeoPoint | null }
+}
+
+export interface GeoPoint {
+  lat: number
+  lon: number
+}
+
+export type GeoState = "missing" | "downloading" | "ready" | "error" | "off" | "demo"
+
+export interface GeoStatus {
+  state: GeoState
+  /** Database edition in use, e.g. "2026-11". */
+  edition: string | null
+  progress: number | null
+  error: string | null
+  attribution: string
+}
+
+/** Peers grouped by where they are. Rates are bytes per second. */
+export interface PeerPlace {
+  lat: number
+  lon: number
+  /** ISO 3166-1 alpha-2. */
+  country: string
+  city: string | null
+  peers: number
+  dl: number
+  ul: number
+}
+
+export interface PeerMap {
+  geo: GeoStatus
+  home: GeoPoint | null
+  total: number
+  unlocated: number
+  places: PeerPlace[]
 }
 
 export interface SettingsResponse {
@@ -278,6 +315,9 @@ export const api = {
 
   info: () => request<ServerInfo>("/info"),
   changelog: () => request<Changelog>("/changelog"),
+  peers: (hash?: string | null) => request<PeerMap>(`/peers${hash ? `?hash=${encodeURIComponent(hash)}` : ""}`),
+  geo: () => request<GeoStatus>("/geo"),
+  geoUpdate: () => request<void>("/geo/update", { method: "POST" }),
   settings: () => request<SettingsResponse>("/settings"),
   saveSettings: (s: Settings) =>
     request<{ restart_needed: boolean }>("/settings", { ...json(s), method: "PUT" }),

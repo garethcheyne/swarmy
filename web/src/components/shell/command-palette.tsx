@@ -11,6 +11,7 @@ import {
   PlusIcon,
   SettingsIcon,
   SparklesIcon,
+  EarthIcon,
 } from "lucide-react"
 
 import type { Torrent } from "@/lib/api"
@@ -132,6 +133,10 @@ export function CommandPalette({
             <CommandItem onSelect={run(() => navigate("statistics"))}>
               <ChartColumnIcon />
               Statistics
+            </CommandItem>
+            <CommandItem onSelect={run(() => navigate("peers"))}>
+              <EarthIcon />
+              Swarm map
             </CommandItem>
             <CommandItem onSelect={run(() => navigate("settings"))}>
               <SettingsIcon />

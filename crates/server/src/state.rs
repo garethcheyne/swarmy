@@ -37,6 +37,9 @@ pub struct AppState {
     /// Unix time each torrent last moved data (qBittorrent's `last_activity`).
     pub activity: Mutex<std::collections::HashMap<String, i64>>,
     pub demo: bool,
+    /// Peer locations for the swarm map.
+    pub geo: Arc<crate::geo::Geo>,
+    pub peer_rates: crate::peermap::PeerRates,
     /// Latest snapshot, refreshed every second by [`run_ticker`].
     pub snapshot: watch::Receiver<Arc<Snapshot>>,
 }

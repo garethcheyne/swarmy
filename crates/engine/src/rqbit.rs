@@ -16,7 +16,7 @@ use librqbit::{
 };
 
 use crate::{
-    AddOptions, AddOutcome, AddSource, ContentLayout, Engine, FileEntry, NetworkInfo, PieceMap,
+    AddOptions, AddOutcome, AddSource, ContentLayout, Engine, FileEntry, NetworkInfo, PeerEntry, PieceMap,
     TorrentState, TorrentStatus,
 };
 
@@ -399,6 +399,32 @@ impl Engine for RqbitEngine {
             .map_err(|e| anyhow::anyhow!("{e}"))?;
         let len = (len as usize).min(bf.len());
         Ok(PieceMap::from_bits((0..len).map(|i| bf[i]), buckets))
+    }
+
+    fn peers(&self, hash: &str) -> anyhow::Result<Vec<PeerEntry>> {
+        if self.pending.lock().unwrap().contains_key(hash) {
+            return Ok(Vec::new());
+        }
+        let id = parse_hash(hash)?;
+        // Paused and initialising torrents have no live peers; that's not an error.
+        let Ok(snapshot) = self.api.api_peer_stats(TorrentIdOrHash::Hash(id), Default::default()) else {
+            return Ok(Vec::new());
+        };
+        Ok(snapshot
+            .peers
+            .into_iter()
+            .filter_map(|(addr, p)| {
+                Some(PeerEntry {
+                    addr: addr.parse().ok()?,
+                    client: p.client_name,
+                    connection: p.conn_kind.map(|k| format!("{k:?}").to_lowercase()),
+                    downloaded_bytes: p.counters.fetched_bytes,
+                    uploaded_bytes: p.counters.uploaded_bytes,
+                    download_speed: None,
+                    upload_speed: None,
+                })
+            })
+            .collect())
     }
 
     fn network(&self) -> NetworkInfo {

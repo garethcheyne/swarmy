@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react"
 import { cn } from "@/lib/utils"
+import { navigate } from "@/lib/route"
 import { CopyIcon, MousePointerClickIcon, PauseIcon, PlayIcon, Trash2Icon } from "lucide-react"
 import { toast } from "sonner"
 
@@ -164,7 +165,18 @@ export function Inspector({ torrent: t, categories, onPause, onResume, onDelete 
       <dl className="grid grid-cols-[100px_minmax(0,1fr)] gap-x-3 gap-y-1.5">
         <Row label="Download"><span className="data">{formatSpeed(t.download_speed)}</span></Row>
         <Row label="Upload"><span className="data">{formatSpeed(t.upload_speed)}</span></Row>
-        <Row label="Peers"><span className="data">{t.peers} connected, {t.seeds} seeds</span></Row>
+        <Row label="Peers">
+          <span className="data">{t.peers} connected, {t.seeds} seeds</span>
+          {t.peers > 0 && (
+            <button
+              type="button"
+              onClick={() => navigate("peers", { hash: t.hash })}
+              className="ml-2 text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
+            >
+              See on map
+            </button>
+          )}
+        </Row>
         <Row label="Uploaded"><span className="data">{formatBytes(t.uploaded)}, ratio {t.ratio.toFixed(2)}</span></Row>
         <Row label="Category">
           <Select

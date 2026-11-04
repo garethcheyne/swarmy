@@ -12,7 +12,7 @@ use std::{
 use async_trait::async_trait;
 
 use crate::{
-    AddOptions, AddOutcome, AddSource, Engine, FileEntry, NetworkInfo, PieceMap, TorrentState,
+    AddOptions, AddOutcome, AddSource, Engine, FileEntry, NetworkInfo, PeerEntry, PieceMap, TorrentState,
     TorrentStatus,
 };
 
@@ -487,6 +487,62 @@ impl Engine for SimEngine {
                 ((x % 10_000) as f64 / 10_000.0) < (p + bias * p * (1.0 - p)).min(1.0)
             });
             PieceMap::from_bits(bits, buckets)
+        })
+    }
+
+    fn peers(&self, hash: &str) -> anyhow::Result<Vec<PeerEntry>> {
+        self.with(hash, |t| {
+            const CLIENTS: [&str; 8] = [
+                "qBittorrent 5.1.2",
+                "qBittorrent 4.6.7",
+                "Transmission 4.0.6",
+                "Deluge 2.1.1",
+                "libtorrent 2.0.11",
+                "\u{b5}Torrent 3.6.0",
+                "BiglyBT 3.7.0",
+                "rqbit 8.1.0",
+            ];
+            let seed = u64::from_str_radix(&t.hash[..12], 16).unwrap_or(1);
+            let mix = |mut x: u64| {
+                x ^= x >> 33;
+                x = x.wrapping_mul(0xff51afd7ed558ccd);
+                x ^= x >> 33;
+                x = x.wrapping_mul(0xc4ceb9fe1a85ec53);
+                x ^ (x >> 33)
+            };
+            // A stable cast of peers per torrent; the first `peers` of them are
+            // connected. Each gets a fixed share of the torrent's traffic.
+            let n = t.peers as usize;
+            let peers: Vec<(u64, f64, f64)> = (0..n)
+                .map(|i| {
+                    let x = mix(seed ^ (i as u64 + 1).wrapping_mul(0x9e3779b97f4a7c15));
+                    let dl_w = if i < t.seeds.max(1) as usize || x % 3 == 0 { 0.2 + (x % 100) as f64 / 40.0 } else { 0.0 };
+                    let ul_w = if x % 4 != 0 { 0.2 + ((x >> 8) % 100) as f64 / 50.0 } else { 0.0 };
+                    (x, dl_w, ul_w)
+                })
+                .collect();
+            let dl_total: f64 = peers.iter().map(|p| p.1).sum::<f64>().max(1e-9);
+            let ul_total: f64 = peers.iter().map(|p| p.2).sum::<f64>().max(1e-9);
+            peers
+                .into_iter()
+                .map(|(x, dl_w, ul_w)| {
+                    // Public-looking IPv4 addresses (first octet 1..=223, never 10/127).
+                    let mut a = (1 + x % 223) as u8;
+                    if a == 10 || a == 127 || a == 172 || a == 192 {
+                        a += 1;
+                    }
+                    let ip = std::net::Ipv4Addr::new(a, (x >> 8) as u8, (x >> 16) as u8, (x >> 24) as u8 | 1);
+                    PeerEntry {
+                        addr: std::net::SocketAddr::new(ip.into(), 6881 + (x % 50_000) as u16),
+                        client: Some(CLIENTS[(x >> 40) as usize % CLIENTS.len()].to_string()),
+                        connection: Some(if x % 5 < 3 { "utp" } else { "tcp" }.to_string()),
+                        downloaded_bytes: (t.downloaded * dl_w / dl_total) as u64,
+                        uploaded_bytes: (t.uploaded * ul_w / ul_total) as u64,
+                        download_speed: Some((t.dl.max(0.0) * dl_w / dl_total) as u64),
+                        upload_speed: Some((t.ul.max(0.0) * ul_w / ul_total) as u64),
+                    }
+                })
+                .collect()
         })
     }
 

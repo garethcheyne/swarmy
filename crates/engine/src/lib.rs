@@ -7,7 +7,7 @@
 mod rqbit;
 mod sim;
 
-use std::path::PathBuf;
+use std::{net::SocketAddr, path::PathBuf};
 
 use async_trait::async_trait;
 use serde::Serialize;
@@ -60,6 +60,22 @@ impl TorrentStatus {
         }
         (self.downloaded_bytes as f64 / self.total_bytes as f64).clamp(0.0, 1.0)
     }
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct PeerEntry {
+    pub addr: SocketAddr,
+    /// The peer's client, from its handshake, when it sent one.
+    pub client: Option<String>,
+    /// "tcp" or "utp" once connected.
+    pub connection: Option<String>,
+    /// Bytes we've had from this peer, and sent to it, this session.
+    pub downloaded_bytes: u64,
+    pub uploaded_bytes: u64,
+    /// Engines that know instantaneous rates report them; otherwise the
+    /// server derives rates from the byte counters.
+    pub download_speed: Option<u64>,
+    pub upload_speed: Option<u64>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -174,6 +190,8 @@ pub trait Engine: Send + Sync + 'static {
     fn status(&self, hash: &str) -> Option<TorrentStatus>;
     fn files(&self, hash: &str) -> anyhow::Result<Vec<FileEntry>>;
     fn pieces(&self, hash: &str, buckets: usize) -> anyhow::Result<PieceMap>;
+    /// Connected peers. Empty for torrents that aren't running.
+    fn peers(&self, hash: &str) -> anyhow::Result<Vec<PeerEntry>>;
     fn network(&self) -> NetworkInfo;
     async fn pause(&self, hash: &str) -> anyhow::Result<()>;
     async fn resume(&self, hash: &str) -> anyhow::Result<()>;

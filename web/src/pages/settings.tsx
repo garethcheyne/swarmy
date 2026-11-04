@@ -15,10 +15,11 @@ import {
   TagIcon,
   Trash2Icon,
   XIcon,
+  EarthIcon,
 } from "lucide-react"
 import { toast } from "sonner"
 
-import { api, UnauthorizedError, type Category, type ServerInfo, type Settings, type SettingsResponse } from "@/lib/api"
+import { api, UnauthorizedError, type Category, type ServerInfo, type Settings, type SettingsResponse, type GeoStatus } from "@/lib/api"
 import { usePoll } from "@/lib/use-poll"
 import { cn } from "@/lib/utils"
 import { ChangelogPanel } from "@/components/release-notes"
@@ -62,6 +63,7 @@ const SECTIONS = [
   { id: "categories", label: "Categories and tags", icon: TagIcon },
   { id: "security", label: "Web UI and security", icon: ShieldIcon },
   { id: "notifications", label: "Notifications", icon: BellIcon },
+  { id: "map", label: "Swarm map", icon: EarthIcon },
   { id: "appearance", label: "Appearance", icon: PaletteIcon },
   { id: "about", label: "About", icon: InfoIcon },
 ] as const
@@ -544,6 +546,39 @@ export function SettingsPage({ onSignedOut }: { onSignedOut: () => void }) {
                 </Section>
               )}
 
+              {section === "map" && (
+                <Section
+                  title="Swarm map"
+                  description="Shows where your peers are and how data moves between you. Locations come from a free database Swarmy keeps on your server, so peer addresses are never sent to anyone."
+                >
+                  <FieldGroup>
+                    <SwitchRow
+                      id="peer-locations"
+                      label="Show where peers are"
+                      description="Downloads DB-IP's free city database (about 60 MB) and checks for a new edition every few hours. Turn off to make no connections for this."
+                      checked={draft.peer_map.locations}
+                      onChange={(v) => set("peer_map", { locations: v })}
+                    />
+                    <GeoDatabaseStatus />
+                    <Field>
+                      <FieldLabel>Your location</FieldLabel>
+                      <FieldDescription>
+                        {draft.peer_map.home
+                          ? `Saved at ${draft.peer_map.home.lat.toFixed(2)}, ${draft.peer_map.home.lon.toFixed(2)}. Set it from the map with "Set my location".`
+                          : 'Estimated from your browser\'s time zone. Use "Set my location" on the map to pin it.'}
+                      </FieldDescription>
+                      {draft.peer_map.home && (
+                        <div>
+                          <Button variant="outline" size="sm" onClick={() => set("peer_map", { home: null })}>
+                            Forget my location
+                          </Button>
+                        </div>
+                      )}
+                    </Field>
+                  </FieldGroup>
+                </Section>
+              )}
+
               {section === "appearance" && (
                 <Section title="Appearance" description="Saved in this browser, so each device can have its own look.">
                   <AppearancePanel />
@@ -844,6 +879,24 @@ function SecuritySection({
         </FieldGroup>
       </Section>
     </div>
+  )
+}
+
+// ---------------------------------------------------------------- swarm map
+
+function GeoDatabaseStatus() {
+  const { data: geo } = usePoll<GeoStatus>(api.geo, 3000)
+  if (!geo) return null
+  const text: Record<GeoStatus["state"], string> = {
+    demo: "Demo mode: peers are placed in made-up locations.",
+    ready: `Location database ready${geo.edition ? `, ${geo.edition} edition` : ""}. ${geo.attribution}.`,
+    downloading: `Downloading the location database${geo.progress != null ? `, ${Math.round(geo.progress * 100)}%` : ""}…`,
+    missing: "The location database hasn't been downloaded yet.",
+    error: `Couldn't get the location database: ${geo.error ?? "unknown error"}. Swarmy tries again every few hours.`,
+    off: "Peer locations are off.",
+  }
+  return (
+    <p className={cn("text-[13px]", geo.state === "error" ? "text-destructive" : "text-muted-foreground")}>{text[geo.state]}</p>
   )
 }
 

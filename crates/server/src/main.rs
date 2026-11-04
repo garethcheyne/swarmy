@@ -4,8 +4,10 @@ mod api;
 mod auth;
 mod changelog;
 mod config;
+mod geo;
 mod policy;
 mod push;
+mod peermap;
 mod qbit;
 mod state;
 mod stats;
@@ -107,6 +109,7 @@ async fn main() -> anyhow::Result<()> {
     };
 
     let (snap_tx, snap_rx) = watch::channel(Arc::new(Snapshot::default()));
+    let geo = geo::Geo::new(&data_dir, cfg.demo)?;
     let state = Arc::new(AppState {
         engine: engine.clone(),
         store,
@@ -121,8 +124,17 @@ async fn main() -> anyhow::Result<()> {
         errored: Default::default(),
         activity: Default::default(),
         demo: cfg.demo,
+        geo,
+        peer_rates: Default::default(),
         snapshot: snap_rx,
     });
+    // The peer-location database: fetched on first start, then kept current.
+    {
+        let s = state.clone();
+        tokio::spawn(geo::run_updater(state.geo.clone(), move || {
+            s.store.read(|d| d.settings.peer_map.locations)
+        }));
+    }
     tokio::spawn(state::run_ticker(state.clone(), snap_tx));
     tokio::spawn(stats::run_system_sampler(stats));
 

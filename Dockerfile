@@ -37,6 +37,7 @@ RUN apt-get update \
     && mkdir -p /config /downloads \
     && chown swarmy:swarmy /config /downloads
 COPY --from=build /usr/local/bin/swarmy /usr/local/bin/swarmy
+COPY LICENSE-MIT LICENSE-APACHE THIRD-PARTY-NOTICES.md /usr/share/doc/swarmy/
 
 ENV SWARMY_DATA_DIR=/config \
     SWARMY_DOWNLOAD_DIR=/downloads \

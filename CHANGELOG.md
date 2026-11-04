@@ -11,7 +11,7 @@ lists.
 
 ## [0.1.0] - Unreleased
 
-The first Swarmy: a BitTorrent client with a web UI you'd actually want to look at, and no ads, ever.
+The first Swarmy: a BitTorrent client with a web UI you'd actually want to look at, and no ads, ever. Free and open source under MIT or Apache-2.0.
 
 ### New
 - A fast BitTorrent engine (librqbit) with DHT, local peer discovery, UPnP port forwarding, magnet links and `.torrent` files.

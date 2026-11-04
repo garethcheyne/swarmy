@@ -2,6 +2,7 @@
 name = "swarmy-usenet"
 version = "0.1.0"
 edition = "2024"
+license.workspace = true
 description = "Swarmy's Usenet downloader: NNTP, NZB, yEnc, repair and unpacking"
 
 [dependencies]

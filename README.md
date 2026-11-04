@@ -85,3 +85,15 @@ cd web && pnpm dev                   # :5173 with hot reload
 3. UI: settings page, speed limits, category management
    (✅ done early: Hive overview, statistics, demo mode)
 4. RSS rules, scheduler, Docker image
+
+## Licence
+
+Swarmy is free and open source, under your choice of the [MIT](LICENSE-MIT) or
+[Apache 2.0](LICENSE-APACHE) licence. It has no ads and no tracking, and never will.
+
+RAR unpacking uses RARLAB's UnRAR source code, which comes with its own condition: it may
+be used to extract RAR archives but not to create them. That condition and the other
+third-party credits are in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
+
+The licences cover the code, not the name "Swarmy" or its logo. If you ship a fork,
+please give it its own name.

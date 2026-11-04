@@ -1081,6 +1081,7 @@ function About({ server }: { server: SettingsResponse }) {
     ["Listening port", info?.network.listen_port ?? "—"],
     ["DHT", info?.network.dht_nodes != null ? `${info.network.dht_nodes} nodes` : "Off"],
     ["Network interface", info?.network.bind_interface ?? "Any"],
+    ["Licence", "Open source, MIT or Apache-2.0. No ads, no tracking."],
   ]
   return (
     <div className="flex flex-col gap-10">

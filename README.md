@@ -165,8 +165,11 @@ web/            the web UI (React, Vite, shadcn/ui); pnpm build → web/dist, em
 install/        the Linux and Proxmox installers
 ```
 
-Releases: push a tag like `v0.2.0` and [the release workflow](.github/workflows/release.yml) builds the Linux
-binaries, publishes the GitHub release the installers download, and pushes the Docker image.
+Versions are `yyyy.mm.dd.build`: the release date, then which release of that day it is (`2026.11.05.1`,
+`2026.11.05.2`…). To release, add the version's notes at the top of [CHANGELOG.md](CHANGELOG.md) and push a
+matching tag (`v2026.11.05.1`). [The release workflow](.github/workflows/release.yml) builds the Linux binaries,
+publishes the GitHub release the installers download, and pushes the Docker image. A tag that doesn't match the
+changelog fails the build before anything is published.
 
 ## Licence
 

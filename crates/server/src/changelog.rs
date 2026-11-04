@@ -74,14 +74,24 @@ mod tests {
     use super::*;
 
     #[test]
-    fn changelog_matches_this_version() {
+    fn versions_are_dates_and_build_numbers() {
         let all = releases();
         assert!(!all.is_empty(), "CHANGELOG.md has no releases");
-        assert_eq!(
-            all[0].version,
-            env!("CARGO_PKG_VERSION"),
-            "the newest CHANGELOG.md entry must be this version; add release notes before bumping"
-        );
+        assert_eq!(all[0].version, env!("SWARMY_VERSION"));
+        for r in all.iter() {
+            // yyyy.mm.dd.build, dated the same day as its heading.
+            let parts: Vec<&str> = r.version.split('.').collect();
+            assert!(
+                parts.len() == 4
+                    && [4, 2, 2].iter().zip(&parts).all(|(n, p)| p.len() == *n)
+                    && parts.iter().all(|p| !p.is_empty() && p.bytes().all(|b| b.is_ascii_digit())),
+                "{} isn't yyyy.mm.dd.build",
+                r.version
+            );
+            if let Some(date) = &r.date {
+                assert_eq!(date.replace('-', "."), parts[..3].join("."), "{} is dated {date}", r.version);
+            }
+        }
         for r in all {
             assert!(r.sections.iter().any(|s| !s.items.is_empty()), "{} has no entries", r.version);
         }

@@ -4,7 +4,7 @@
 #   curl -fsSL https://raw.githubusercontent.com/garethcheyne/swarmy/main/install/install.sh | sudo bash
 #
 # Run it again to upgrade. Options (environment variables):
-#   SWARMY_VERSION=v0.2.0    install a specific release (default: latest)
+#   SWARMY_VERSION=v2026.11.05.1   install a specific release (default: latest)
 #   SWARMY_PORT=8080         web UI port (first install only)
 #   SWARMY_DOWNLOADS=/path   download folder (first install only)
 #   SWARMY_UNINSTALL=1       remove Swarmy (keeps your data and downloads)

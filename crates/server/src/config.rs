@@ -5,7 +5,7 @@ use clap::Parser;
 /// Swarmy — a BitTorrent daemon with a modern web UI and a
 /// qBittorrent-compatible API for Sonarr/Radarr/Prowlarr.
 #[derive(Debug, Parser)]
-#[command(version, about)]
+#[command(version = env!("SWARMY_VERSION"), about)]
 pub struct Config {
     /// Directory for Swarmy's own state (settings, metadata, resume data).
     #[arg(long, env = "SWARMY_DATA_DIR")]

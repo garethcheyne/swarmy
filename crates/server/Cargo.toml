@@ -1,6 +1,6 @@
 [package]
 name = "swarmy"
-version = "0.1.0"
+version.workspace = true
 edition = "2024"
 license.workspace = true
 
@@ -14,7 +14,7 @@ dirs = "7.0.0"
 futures = "0.3.34"
 mime_guess = "2.0.5"
 rand = "0.10.3"
-swarmy-engine = { version = "0.1.0", path = "../engine" }
+swarmy-engine = { path = "../engine" }
 swarmy-usenet = { path = "../usenet" }
 rusqlite = { version = "0.41.1", features = ["bundled"] }
 rust-embed = "8.13.0"

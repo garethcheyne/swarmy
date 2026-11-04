@@ -24,6 +24,7 @@ fn config(root: &Path) -> RqbitConfig {
         peer_limit: None,
         socks_proxy: None,
         blocklist_url: None,
+        client_name: "Swarmy test".into(),
     }
 }
 
@@ -107,7 +108,10 @@ async fn a_paused_torrent_stays_paused_and_nothing_is_overwritten() {
     assert_eq!(fs::metadata(root.join("taken/Pack/a.bin")).unwrap().len(), 10);
 
     engine.relocate(&hash, root.join("elsewhere/Pack")).await.unwrap();
-    wait_for(&engine, &hash, "the moved torrent", |s| s.output_folder == root.join("elsewhere/Pack")).await;
-    assert_eq!(engine.status(&hash).unwrap().state, TorrentState::Paused);
+    // It checks its pieces at the new folder first (Initializing), then settles paused.
+    wait_for(&engine, &hash, "the moved torrent to settle, paused", |s| {
+        s.output_folder == root.join("elsewhere/Pack") && s.state == TorrentState::Paused
+    })
+    .await;
     engine.shutdown().await;
 }

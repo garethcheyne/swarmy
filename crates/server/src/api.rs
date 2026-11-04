@@ -740,7 +740,7 @@ async fn delete_category(State(state): State<Shared>, Path(name): Path<String>) 
 async fn info(State(state): State<Shared>) -> Json<serde_json::Value> {
     Json(serde_json::json!({
         "name": "Swarmy",
-        "version": env!("CARGO_PKG_VERSION"),
+        "version": env!("SWARMY_VERSION"),
         "demo": state.demo,
         "download_dir": state.download_dir(),
         "network": state.engine.network(),
@@ -776,7 +776,7 @@ async fn geo_update(State(state): State<Shared>) -> ApiResult<StatusCode> {
 
 async fn changelog() -> Json<serde_json::Value> {
     Json(serde_json::json!({
-        "version": env!("CARGO_PKG_VERSION"),
+        "version": env!("SWARMY_VERSION"),
         "releases": crate::changelog::releases(),
     }))
 }

@@ -99,7 +99,7 @@ impl Geo {
             .https_only(true)
             .connect_timeout(Duration::from_secs(20))
             .read_timeout(Duration::from_secs(60))
-            .user_agent(concat!("Swarmy/", env!("CARGO_PKG_VERSION")))
+            .user_agent(concat!("Swarmy/", env!("SWARMY_VERSION")))
             .build()
             .context("building geo HTTP client")?;
         let geo = Arc::new(Self {

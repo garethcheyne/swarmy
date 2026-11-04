@@ -25,7 +25,7 @@ const MAX_NZB: usize = 50 * 1024 * 1024;
 static HTTP: LazyLock<reqwest::Client> = LazyLock::new(|| {
     reqwest::Client::builder()
         .timeout(Duration::from_secs(60))
-        .user_agent(concat!("Swarmy/", env!("CARGO_PKG_VERSION")))
+        .user_agent(concat!("Swarmy/", env!("SWARMY_VERSION")))
         .build()
         .expect("HTTP client")
 });

@@ -45,6 +45,8 @@ pub struct RqbitConfig {
     pub socks_proxy: Option<String>,
     /// URL of an IP blocklist (P2P/DAT format, optionally gzipped).
     pub blocklist_url: Option<String>,
+    /// What peers see us as, e.g. "Swarmy 2026.11.05.1".
+    pub client_name: String,
 }
 
 /// A magnet whose metadata is still being fetched. librqbit only returns
@@ -131,7 +133,7 @@ impl RqbitEngine {
                 ..Default::default()
             }),
             ipv4_only: cfg.ipv4_only,
-            client_name_and_version: Some(format!("Swarmy {}", env!("CARGO_PKG_VERSION"))),
+            client_name_and_version: Some(cfg.client_name.clone()),
             ..Default::default()
         };
 

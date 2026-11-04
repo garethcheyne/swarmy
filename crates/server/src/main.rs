@@ -97,6 +97,7 @@ async fn main() -> anyhow::Result<()> {
     } else {
         Arc::new(
             RqbitEngine::start(RqbitConfig {
+                client_name: format!("Swarmy {}", env!("SWARMY_VERSION")),
                 default_download_dir: download_dir.clone(),
                 state_dir: data_dir.join("session"),
                 listen_port: conn.listen_port,

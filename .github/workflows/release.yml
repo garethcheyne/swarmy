@@ -1,4 +1,5 @@
-# Push a tag like v0.1.0 and this builds Swarmy for Linux x86-64 and ARM64,
+# Push a tag like v2026.11.05.1 (yyyy.mm.dd.build, matching the newest
+# CHANGELOG.md entry) and this builds Swarmy for Linux x86-64 and ARM64,
 # publishes a GitHub release (what install/install.sh downloads) and pushes
 # the multi-arch image to ghcr.io/garethcheyne/swarmy.
 name: Release
@@ -63,7 +64,9 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           key: ${{ matrix.arch }}
-      - run: cargo build --release --locked -p swarmy
+      - name: Build
+        # Fails if the tag doesn't match the newest CHANGELOG.md entry.
+        run: SWARMY_RELEASE="$GITHUB_REF_NAME" cargo build --release --locked -p swarmy
       - name: Package
         run: |
           name="swarmy-${GITHUB_REF_NAME}-linux-${{ matrix.arch }}"
@@ -143,8 +146,7 @@ jobs:
         with:
           images: ghcr.io/${{ github.repository }}
           tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
+            type=match,pattern=v(.*),group=1
             type=raw,value=latest,enable=${{ !contains(github.ref_name, '-') }}
           labels: |
             org.opencontainers.image.title=Swarmy

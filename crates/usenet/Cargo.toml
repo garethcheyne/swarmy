@@ -1,6 +1,6 @@
 [package]
 name = "swarmy-usenet"
-version = "0.1.0"
+version.workspace = true
 edition = "2024"
 license.workspace = true
 description = "Swarmy's Usenet downloader: NNTP, NZB, yEnc, repair and unpacking"

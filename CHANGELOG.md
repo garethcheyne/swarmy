@@ -7,9 +7,11 @@ developers.
 
 Each release is a `## [version] - date` heading (or `- Unreleased`), an
 optional one-line summary, then `### New`, `### Improved` and `### Fixed`
-lists.
+lists. Versions are `yyyy.mm.dd.build`: the release date, then 1 for the
+first release that day, 2 for the next, and so on. The top entry is the
+version Swarmy reports, and a release tag must match it.
 
-## [0.1.0] - 2026-11-05
+## [2026.11.05.1] - 2026-11-05
 
 The first Swarmy: a BitTorrent client with a web UI you'd actually want to look at, and no ads, ever. Free and open source under MIT or Apache-2.0.
 

@@ -17,6 +17,7 @@ mod state;
 mod stats;
 mod store;
 mod web;
+mod update;
 mod usenet;
 mod ws;
 
@@ -144,6 +145,7 @@ async fn main() -> anyhow::Result<()> {
         usenet,
         demo_usenet: Default::default(),
         mover: Default::default(),
+        updates: update::Updates::from_env(),
         snapshot: snap_rx,
     });
     // The peer-location database: fetched on first start, then kept current.
@@ -156,6 +158,7 @@ async fn main() -> anyhow::Result<()> {
     tokio::spawn(state::run_ticker(state.clone(), snap_tx));
     usenet::start(&state);
     tokio::spawn(mover::run(state.clone()));
+    tokio::spawn(update::run(state.clone()));
     tokio::spawn(stats::run_system_sampler(stats));
 
     let app = Router::new()

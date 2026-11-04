@@ -11,6 +11,19 @@ lists. Versions are `yyyy.mm.dd.build`: the release date, then 1 for the
 first release that day, 2 for the next, and so on. The top entry is the
 version Swarmy reports, and a release tag must match it.
 
+## [2026.11.05.5] - 2026-11-05
+
+Know when there's a new Swarmy, and install it from Settings.
+
+### New
+- Swarmy checks for new releases every few hours. When there is one, the status bar says so, and Settings → About shows what's new in every version since yours.
+- Install updates with one click on Linux and Proxmox: Swarmy downloads the new version, checks it, installs it and restarts, and the page reloads by itself. If anything goes wrong, Settings → About shows what the updater said.
+- Docker users get the command to pull the new image instead.
+- Turn the checks off in Settings → About if you'd rather not.
+
+### Improved
+- Installed with the Linux or Proxmox installer before this version? Run the install command once more to turn on one-click updates; after that, updates come from Settings.
+
 ## [2026.11.05.4] - 2026-11-05
 
 Give each app its own API key.

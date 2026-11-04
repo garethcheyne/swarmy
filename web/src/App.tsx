@@ -9,6 +9,7 @@ import { openFloating, pipSupported, syncTheme } from "@/lib/pip"
 import { hashParam, navigate, useRoute } from "@/lib/route"
 import { usePoll } from "@/lib/use-poll"
 import { compareVersions, markSeen, seenVersion } from "@/lib/version"
+import { settingsHref } from "@/lib/settings-sections"
 import { AddTorrentDialog, type AddPrefill } from "@/components/add-torrent-dialog"
 import { AddNzbDialog } from "@/components/add-nzb-dialog"
 import { AppearanceDialog } from "@/components/appearance-dialog"
@@ -114,6 +115,24 @@ function Shell({ onSignedOut }: { onSignedOut: () => void }) {
       setSeen(info.version)
     }
   }
+
+  // Say once per version when a newer Swarmy is out; phones have no status bar.
+  const available = info?.update_available ?? null
+  useEffect(() => {
+    if (!available) return
+    const KEY = "swarmy.update-noticed"
+    try {
+      if (localStorage.getItem(KEY) === available) return
+      localStorage.setItem(KEY, available)
+    } catch {
+      // No storage (private window): say it anyway.
+    }
+    toast(`Swarmy ${available} is available`, {
+      description: "See what's new and install it in Settings, About.",
+      action: { label: "Open", onClick: () => (window.location.href = settingsHref("about")) },
+      duration: 10000,
+    })
+  }, [available])
 
   // Categories can be created implicitly (by adds, Sonarr, …), so refresh
   // whenever a torrent shows up with one we don't know.

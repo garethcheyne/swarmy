@@ -21,6 +21,13 @@ DOWNLOADS="${SWARMY_DOWNLOADS:-$DATA_DIR/downloads}"
 BIN_DIR=/opt/swarmy
 ENV_FILE=/etc/swarmy/swarmy.env
 UNIT=/etc/systemd/system/swarmy.service
+# One-click updates: Swarmy creates UPDATE_REQUEST, swarmy-update.path sees it
+# and swarmy-update.service (root) runs UPDATER, which installs the newest release.
+UPDATE_UNIT=/etc/systemd/system/swarmy-update.service
+UPDATE_PATH=/etc/systemd/system/swarmy-update.path
+UPDATER="$BIN_DIR/update"
+UPDATE_REQUEST="$DATA_DIR/.update-request"
+UPDATE_LOG=/var/log/swarmy-update.log
 
 say() { printf '\033[1;32m==>\033[0m %s\n' "$*"; }
 warn() { printf '\033[1;33mNote:\033[0m %s\n' "$*" >&2; }
@@ -31,8 +38,8 @@ command -v systemctl >/dev/null || die "this installer needs systemd. Use the Do
 
 if [ "${SWARMY_UNINSTALL:-0}" = "1" ]; then
   say "Removing Swarmy (your data in $DATA_DIR and downloads are kept)"
-  systemctl disable --now swarmy 2>/dev/null || true
-  rm -f "$UNIT" /usr/local/bin/swarmy
+  systemctl disable --now swarmy swarmy-update.path 2>/dev/null || true
+  rm -f "$UNIT" "$UPDATE_UNIT" "$UPDATE_PATH" "$UPDATE_LOG" "$UPDATE_REQUEST" /usr/local/bin/swarmy
   rm -rf "$BIN_DIR"
   systemctl daemon-reload
   say "Done. Delete $DATA_DIR and /etc/swarmy yourself if you want them gone too."
@@ -135,12 +142,70 @@ RestartSec=5
 LimitNOFILE=65536
 NoNewPrivileges=yes
 PrivateTmp=yes
+# One-click updates in Settings > About; see swarmy-update.path.
+Environment=SWARMY_UPDATE_REQUEST=$UPDATE_REQUEST
+Environment=SWARMY_UPDATE_LOG=$UPDATE_LOG
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# The updater. Swarmy runs unprivileged and can only ask for an update; this
+# decides what to install (the newest release, checksum verified by
+# install.sh), so Swarmy can't get anything else installed as root. Written to
+# a temporary file and renamed, because this may be the updater running now.
+cat > "$UPDATER.new" <<EOF
+#!/usr/bin/env bash
+# Installs the newest Swarmy release. swarmy-update.service runs this as root
+# when Swarmy asks for an update (Settings > About) by creating $UPDATE_REQUEST.
+set -euo pipefail
+main() {
+  install -m 0644 /dev/null "$UPDATE_LOG"
+  exec >>"$UPDATE_LOG" 2>&1
+  # Swarmy reads this line to know the update has finished, and how.
+  trap 'echo "Updater finished: exit status \$?"' EXIT
+  rm -f "$UPDATE_REQUEST"
+  echo "\$(date '+%Y-%m-%d %H:%M:%S') Looking for the newest Swarmy release"
+  local tag
+  tag="\$(curl -fsSL "https://api.github.com/repos/$REPO/releases/latest" | sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p' | head -n1)"
+  if ! printf '%s\n' "\$tag" | grep -Eq '^v[0-9]{4}\.[0-9]{2}\.[0-9]{2}\.[0-9]{1,4}\$'; then
+    echo "Error: couldn't find the newest release on GitHub."
+    exit 1
+  fi
+  echo "Updating to Swarmy \$tag"
+  curl -fsSL "https://raw.githubusercontent.com/$REPO/\$tag/install/install.sh" \\
+    | SWARMY_VERSION="\$tag" SWARMY_REPO="$REPO" bash
+}
+main "\$@"
+EOF
+chmod 0755 "$UPDATER.new"
+mv -f "$UPDATER.new" "$UPDATER"
+
+cat > "$UPDATE_UNIT" <<EOF
+[Unit]
+Description=Install the newest Swarmy release (asked for in Swarmy's settings)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=$UPDATER
+EOF
+
+cat > "$UPDATE_PATH" <<EOF
+[Unit]
+Description=Let Swarmy ask for an update
+
+[Path]
+PathExists=$UPDATE_REQUEST
 
 [Install]
 WantedBy=multi-user.target
 EOF
 
 systemctl daemon-reload
+systemctl enable --now swarmy-update.path >/dev/null 2>&1 || warn "couldn't turn on one-click updates (swarmy-update.path)."
+
 if [ "$UPGRADE" = "1" ]; then
   systemctl restart swarmy
   say "Upgraded to Swarmy $VERSION."

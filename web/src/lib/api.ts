@@ -140,6 +140,26 @@ export interface ServerInfo {
   /** Why Swarmy can't write to the download folder, if it can't. */
   download_dir_problem: string | null
   network: { listen_port: number | null; dht_nodes: number | null; bind_interface: string | null }
+  /** A newer Swarmy release, if there is one. */
+  update_available: string | null
+}
+
+/** Settings → About: newer releases, and how to install them. */
+export interface UpdateStatus {
+  current: string
+  latest: { version: string; url: string; published: string | null } | null
+  /** Notes for every release newer than this one, newest first. */
+  notes: Release[]
+  checked_at: number | null
+  error: string | null
+  check: boolean
+  /** "installer": one click from here. "docker": pull the image. "manual": run the installer. */
+  method: "installer" | "docker" | "manual"
+  /** An install was asked for and hasn't started yet. */
+  pending: boolean
+  /** ...and nothing has picked it up for a while. */
+  stuck: boolean
+  last_run: { at: number; running: boolean; ok: boolean; log: string } | null
 }
 
 export interface FolderListing {
@@ -216,6 +236,7 @@ export interface Settings {
     qbit_api: boolean
   }
   peer_map: { locations: boolean; home: GeoPoint | null }
+  updates: { check: boolean }
   usenet: UsenetSettings
 }
 
@@ -458,6 +479,9 @@ export const api = {
   deleteTag: (name: string) => request<void>(`/tags/${encodeURIComponent(name)}`, { method: "DELETE" }),
   changePassword: (body: { current_password: string; username?: string; new_password?: string }) =>
     request<{ signed_out: number }>("/auth/password", json(body)),
+  update: () => request<UpdateStatus>("/update"),
+  checkUpdate: () => request<UpdateStatus>("/update/check", { method: "POST" }),
+  installUpdate: () => request<UpdateStatus>("/update/install", { method: "POST" }),
   apiKeys: () => request<ApiKey[]>("/keys"),
   createApiKey: (name: string, expires: number | null) =>
     request<ApiKey & { key: string }>("/keys", json({ name, expires })),

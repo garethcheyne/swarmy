@@ -61,6 +61,7 @@ pub fn router(state: Shared) -> Router<Shared> {
         .merge(crate::usenet::router())
         .merge(crate::folders::router())
         .merge(crate::keys::router())
+        .merge(crate::update::router())
         .route_layer(middleware::from_fn_with_state(state, auth::require_session));
 
     Router::new()
@@ -762,6 +763,8 @@ async fn info(State(state): State<Shared>) -> Json<serde_json::Value> {
         // So the UI can warn before downloads start failing.
         "download_dir_problem": crate::folders::check_writable(&state.download_dir()).err(),
         "network": state.engine.network(),
+        // A newer release, for the status bar.
+        "update_available": state.updates.available(),
     }))
 }
 

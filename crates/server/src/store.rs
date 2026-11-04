@@ -112,6 +112,21 @@ pub struct Settings {
     pub webui: WebUiSettings,
     pub peer_map: PeerMapSettings,
     pub usenet: UsenetSettings,
+    pub updates: UpdateSettings,
+}
+
+/// New Swarmy releases.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct UpdateSettings {
+    /// Check GitHub for new releases every few hours.
+    pub check: bool,
+}
+
+impl Default for UpdateSettings {
+    fn default() -> Self {
+        Self { check: true }
+    }
 }
 
 /// Usenet downloading (NZB), SABnzbd-compatible.
@@ -180,6 +195,7 @@ impl Default for Settings {
             webui: WebUiSettings::default(),
             peer_map: PeerMapSettings::default(),
             usenet: UsenetSettings::default(),
+            updates: UpdateSettings::default(),
         }
     }
 }

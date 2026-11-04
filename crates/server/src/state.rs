@@ -46,6 +46,8 @@ pub struct AppState {
     pub demo_usenet: Mutex<Option<swarmy_usenet::Server>>,
     /// Torrents waiting to move between folders.
     pub mover: crate::mover::Mover,
+    /// New releases, and installing them.
+    pub updates: crate::update::Updates,
     /// Latest snapshot, refreshed every second by [`run_ticker`].
     pub snapshot: watch::Receiver<Arc<Snapshot>>,
 }

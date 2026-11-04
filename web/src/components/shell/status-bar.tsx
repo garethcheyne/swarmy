@@ -1,5 +1,6 @@
 import type { GlobalStats, ServerInfo } from "@/lib/api"
 import { formatBytes } from "@/lib/format"
+import { cn } from "@/lib/utils"
 import { settingsHref } from "@/lib/settings-sections"
 
 /** The bottom strip: network facts at a glance. Desktop only. */
@@ -42,12 +43,24 @@ export function StatusBar({
           Can't write to the download folder
         </a>
       )}
+      {info?.update_available && (
+        <a
+          href={settingsHref("about")}
+          title={`Swarmy ${info.update_available} is available`}
+          className="ml-auto font-medium text-primary underline-offset-2 hover:underline"
+        >
+          Update available
+        </a>
+      )}
       {info && (
         <button
           type="button"
           onClick={onVersion}
           title="What's new"
-          className="ml-auto rounded-sm px-1 underline-offset-2 hover:text-sidebar-foreground hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+          className={cn(
+            "rounded-sm px-1 underline-offset-2 hover:text-sidebar-foreground hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+            !info.update_available && "ml-auto"
+          )}
         >
           Swarmy {info.version}
           {info.demo ? ", demo mode" : ""}

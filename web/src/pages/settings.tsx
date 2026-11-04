@@ -16,6 +16,7 @@ import type { HelpId } from "@/lib/settings-help"
 import { SETTINGS_SECTIONS, settingsHref, useSettingsSection } from "@/lib/settings-sections"
 import { SettingHelp } from "@/components/setting-help"
 import { ChangelogPanel } from "@/components/release-notes"
+import { UpdatesPanel } from "@/components/updates"
 import { FolderInput } from "@/components/folder-picker"
 import { AppearancePanel } from "@/components/appearance-dialog"
 import { IntegrationsSection } from "@/components/integrations-section"
@@ -620,7 +621,9 @@ export function SettingsPage({ onSignedOut }: { onSignedOut: () => void }) {
                 </Section>
               )}
 
-              {section === "about" && <About server={server} />}
+              {section === "about" && (
+                <About server={server} check={draft.updates.check} onCheck={(v) => set("updates", { check: v })} />
+              )}
             </>
           )}
         </div>
@@ -1119,7 +1122,7 @@ function GeoDatabaseStatus() {
 
 // ---------------------------------------------------------------- about
 
-function About({ server }: { server: SettingsResponse }) {
+function About({ server, check, onCheck }: { server: SettingsResponse; check: boolean; onCheck: (v: boolean) => void }) {
   const { data: info } = usePoll<ServerInfo>(api.info, 10000)
   const rows: [string, ReactNode][] = [
     ["Version", info ? `Swarmy ${info.version}` : "…"],
@@ -1134,6 +1137,16 @@ function About({ server }: { server: SettingsResponse }) {
   ]
   return (
     <div className="flex flex-col gap-10">
+      <Section title="Updates">
+        <UpdatesPanel />
+        <SwitchRow
+          id="update-check"
+          label="Check for updates"
+          description="Every few hours, Swarmy asks GitHub whether there's a newer release, and says so in the status bar and here. Nothing is installed unless you choose to."
+          checked={check}
+          onChange={onCheck}
+        />
+      </Section>
       <Section title="About">
         <dl className="grid grid-cols-[10rem_minmax(0,1fr)] gap-x-4 gap-y-2 text-[13px]">
           {rows.map(([k, v]) => (

@@ -98,9 +98,16 @@ The [compose file](deploy/docker-compose.yml) also shows how to run Swarmy behin
 
 ### Upgrade and remove
 
+Swarmy checks for new releases every few hours and says so in the status bar. **Settings → About** shows what's
+new, and on Linux and Proxmox installs it with one click: Swarmy downloads it, checks it, installs it and restarts.
+(Swarmy itself runs unprivileged and can only *ask* for an update; a small root service, `swarmy-update`, set up by
+the installer, fetches the newest official release and installs it. It never installs anything Swarmy names. Its
+output goes to `/var/log/swarmy-update.log`.) Installed before one-click updates existed? Run the install command
+once more to turn them on.
+
 | | Linux and Proxmox | Docker |
 |---|---|---|
-| Upgrade | run the Linux install command again (on Proxmox: `pct exec <CTID> -- bash -c "curl -fsSL https://raw.githubusercontent.com/garethcheyne/swarmy/main/install/install.sh \| bash"`) | `docker compose pull && docker compose up -d` |
+| Upgrade | **Settings → About → Install**, or run the Linux install command again (on Proxmox: `pct exec <CTID> -- bash -c "curl -fsSL https://raw.githubusercontent.com/garethcheyne/swarmy/main/install/install.sh \| bash"`) | `docker compose pull && docker compose up -d` |
 | Remove | `curl -fsSL https://raw.githubusercontent.com/garethcheyne/swarmy/main/install/install.sh \| sudo SWARMY_UNINSTALL=1 bash` (keeps your data and downloads) | `docker compose down` |
 
 ## First steps

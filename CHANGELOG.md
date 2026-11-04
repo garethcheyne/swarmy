@@ -11,6 +11,14 @@ lists. Versions are `yyyy.mm.dd.build`: the release date, then 1 for the
 first release that day, 2 for the next, and so on. The top entry is the
 version Swarmy reports, and a release tag must match it.
 
+## [2026.11.05.3] - 2026-11-05
+
+### New
+- Proxmox installer: asks whether to keep the container's system packages up to date by themselves (daily security fixes and stable updates, using Debian's unattended-upgrades). On by default; `AUTO_UPDATE=0` turns it off.
+
+### Fixed
+- Proxmox installer: could stop without showing the address and password after remounting an SMB share that had no mount options. If anything stops it now, it says where, and how to sign in.
+
 ## [2026.11.05.2] - 2026-11-05
 
 Pick folders by browsing the server, and know straight away if Swarmy can write there.

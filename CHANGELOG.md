@@ -11,6 +11,21 @@ lists. Versions are `yyyy.mm.dd.build`: the release date, then 1 for the
 first release that day, 2 for the next, and so on. The top entry is the
 version Swarmy reports, and a release tag must match it.
 
+## [2026.11.05.2] - 2026-11-05
+
+Pick folders by browsing the server, and know straight away if Swarmy can write there.
+
+### New
+- A folder browser on every folder setting (download, unfinished, category and Usenet folders, and Move). Browse the server's folders and mounted shares, make a new folder, and see whether Swarmy can write to it before you pick it.
+- Swarmy checks it can write to a folder before saving it, and says why not (with the user it runs as) if it can't.
+- A warning in the status bar and on Settings → Downloads if the download folder stops being writable, for example a share that came unmounted.
+- Proxmox installer: asks for a root password for the container's console, or signs the console in by itself if you leave it empty.
+- Proxmox installer: if the download share is an SMB share the container can't write to, it offers to remount it so containers can (and warns if that share also holds backups).
+
+### Fixed
+- The download folder set by the Linux installer or Docker could no longer be changed in Settings. It's now only the default.
+- Proxmox installer: no more locale warnings from inside the new container.
+
 ## [2026.11.05.1] - 2026-11-05
 
 The first Swarmy: a BitTorrent client with a web UI you'd actually want to look at, and no ads, ever. Free and open source under MIT or Apache-2.0.

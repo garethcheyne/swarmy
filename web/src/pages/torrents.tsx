@@ -87,7 +87,6 @@ export function TorrentsPage({
     setMoveKey((k) => k + 1)
   }, [])
   const moving = useMemo(() => torrents.filter((t) => moveTargets?.includes(t.hash)), [torrents, moveTargets])
-  const folders = useMemo(() => [...new Set(torrents.map((t) => t.save_path).filter(Boolean))].sort(), [torrents])
 
   // Keyboard: j/k or arrows move, space pauses/resumes, Delete deletes, Esc clears.
   useEffect(() => {
@@ -253,7 +252,6 @@ export function TorrentsPage({
         open={moveTargets !== null && moving.length > 0}
         onOpenChange={(o) => !o && setMoveTargets(null)}
         targets={moving}
-        folders={folders}
       />
     </div>
   )

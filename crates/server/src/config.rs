@@ -11,7 +11,7 @@ pub struct Config {
     #[arg(long, env = "SWARMY_DATA_DIR")]
     pub data_dir: Option<PathBuf>,
 
-    /// Default download location.
+    /// Default download location, used until another is chosen in Settings.
     #[arg(long, env = "SWARMY_DOWNLOAD_DIR")]
     pub download_dir: Option<PathBuf>,
 

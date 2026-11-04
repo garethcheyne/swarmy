@@ -137,7 +137,20 @@ export interface ServerInfo {
   version: string
   demo: boolean
   download_dir: string
+  /** Why Swarmy can't write to the download folder, if it can't. */
+  download_dir_problem: string | null
   network: { listen_port: number | null; dht_nodes: number | null; bind_interface: string | null }
+}
+
+export interface FolderListing {
+  path: string
+  parent: string | null
+  folders: { name: string; path: string }[]
+  /** Whether Swarmy can write here; `problem` says why not. */
+  writable: boolean
+  problem: string | null
+  /** Shortcuts: the download folder, mounted shares, the top of the disk. */
+  places: { label: string; path: string }[]
 }
 
 export interface ChangelogSection {
@@ -403,6 +416,10 @@ export const api = {
   move: (hashes: string[], location: string | null) =>
     request<void>("/torrents/move", json({ hashes, location })),
   files: (hash: string) => request<TorrentFile[]>(`/torrents/${hash}/files`),
+  folders: (path: string | null) =>
+    request<FolderListing>(path ? `/folders?path=${encodeURIComponent(path)}` : "/folders"),
+  newFolder: (parent: string, name: string) =>
+    request<{ name: string; path: string }>("/folders/new", json({ parent, name })),
   setMeta: (hash: string, meta: { category?: string; tags?: string[] }) =>
     request<void>(`/torrents/${hash}/meta`, { ...json(meta), method: "PUT" }),
 

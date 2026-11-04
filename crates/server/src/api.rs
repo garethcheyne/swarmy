@@ -60,6 +60,7 @@ pub fn router(state: Shared) -> Router<Shared> {
         // Merged before the auth layer: a layer only covers routes that
         // already exist when it's applied.
         .merge(crate::usenet::router())
+        .merge(crate::folders::router())
         .route_layer(middleware::from_fn_with_state(state, auth::require_session));
 
     Router::new()
@@ -289,6 +290,36 @@ async fn put_settings(
         && !((-90.0..=90.0).contains(&h.lat) && (-180.0..=180.0).contains(&h.lon))
     {
         return Err(ApiError::bad_request("That location isn't on the map."));
+    }
+    // Any folder that changed must be one Swarmy can write to, before it's saved.
+    let old = state.store.read(|d| d.settings.clone());
+    let changed = |new: &str, old: &str| !new.trim().is_empty() && new.trim() != old.trim();
+    let mut folders: Vec<std::path::PathBuf> = Vec::new();
+    if changed(&new.downloads.default_save_path, &old.downloads.default_save_path) {
+        folders.push(new.downloads.default_save_path.trim().into());
+    }
+    if new.downloads.use_incomplete_dir
+        && (!old.downloads.use_incomplete_dir || new.downloads.incomplete_dir.trim() != old.downloads.incomplete_dir.trim())
+    {
+        let base = match new.downloads.default_save_path.trim() {
+            "" => state.fallback_download_dir.clone(),
+            p => p.into(),
+        };
+        folders.push(match new.downloads.incomplete_dir.trim() {
+            "" => base.join("incomplete"),
+            p => p.into(),
+        });
+    }
+    for (n, o) in [
+        (&new.usenet.complete_dir, &old.usenet.complete_dir),
+        (&new.usenet.incomplete_dir, &old.usenet.incomplete_dir),
+    ] {
+        if changed(n, o) {
+            folders.push(n.trim().into());
+        }
+    }
+    for dir in &folders {
+        crate::folders::check_writable(dir).map_err(ApiError::bad_request)?;
     }
     let locations_changed = new.peer_map.locations != state.store.read(|d| d.settings.peer_map.locations);
     let queue_turned_off = !new.queue.enabled && state.store.read(|d| d.settings.queue.enabled);
@@ -711,6 +742,10 @@ async fn put_category(
     if name.trim().is_empty() {
         return Err(ApiError::bad_request("category name is empty"));
     }
+    let path = cat.save_path.trim();
+    if !path.is_empty() && state.store.read(|d| d.categories.get(&name).is_none_or(|c| c.save_path.trim() != path)) {
+        crate::folders::check_writable(std::path::Path::new(path)).map_err(ApiError::bad_request)?;
+    }
     let moved = state.store.update(|d| {
         let old = d.categories.insert(name.clone(), cat.clone());
         old.is_none_or(|o| o.save_path != cat.save_path)
@@ -743,6 +778,8 @@ async fn info(State(state): State<Shared>) -> Json<serde_json::Value> {
         "version": env!("SWARMY_VERSION"),
         "demo": state.demo,
         "download_dir": state.download_dir(),
+        // So the UI can warn before downloads start failing.
+        "download_dir_problem": crate::folders::check_writable(&state.download_dir()).err(),
         "network": state.engine.network(),
     }))
 }

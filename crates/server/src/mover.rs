@@ -167,8 +167,7 @@ pub fn category_folder_changed(state: &Shared, category: &str) {
 /// or back under their category's folder with `location = None`.
 pub fn move_by_hand(state: &Shared, hashes: &[String], location: Option<&Path>) -> anyhow::Result<()> {
     if let Some(dir) = location {
-        anyhow::ensure!(dir.is_absolute(), "Give the full path of the folder, like /data/torrents.");
-        std::fs::create_dir_all(dir).map_err(|e| anyhow::anyhow!("Swarmy can't create {}: {e}", dir.display()))?;
+        crate::folders::check_writable(dir).map_err(anyhow::Error::msg)?;
     }
     let known: Vec<(String, String)> = state.store.read(|d| {
         hashes.iter().filter_map(|h| Some((h.clone(), d.torrents.get(h)?.category.clone()))).collect()

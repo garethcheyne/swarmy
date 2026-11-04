@@ -3882,6 +3882,7 @@ dependencies = [
  "swarmy-engine",
  "swarmy-usenet",
  "sysinfo",
+ "tempfile",
  "tokio",
  "tower-http 0.7.1",
  "tracing",

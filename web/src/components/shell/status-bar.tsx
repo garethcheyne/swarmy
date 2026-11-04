@@ -1,5 +1,6 @@
 import type { GlobalStats, ServerInfo } from "@/lib/api"
 import { formatBytes } from "@/lib/format"
+import { settingsHref } from "@/lib/settings-sections"
 
 /** The bottom strip: network facts at a glance. Desktop only. */
 export function StatusBar({
@@ -36,6 +37,11 @@ export function StatusBar({
         </span>
       )}
       <span>{stats?.peers ?? 0} peers</span>
+      {info?.download_dir_problem && (
+        <a href={settingsHref("downloads")} title={info.download_dir_problem} className="font-medium text-destructive underline-offset-2 hover:underline">
+          Can't write to the download folder
+        </a>
+      )}
       {info && (
         <button
           type="button"

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react"
 import {
+  CircleAlertIcon,
   LockIcon,
   PlusIcon,
   RotateCwIcon,
@@ -15,6 +16,7 @@ import type { HelpId } from "@/lib/settings-help"
 import { SETTINGS_SECTIONS, settingsHref, useSettingsSection } from "@/lib/settings-sections"
 import { SettingHelp } from "@/components/setting-help"
 import { ChangelogPanel } from "@/components/release-notes"
+import { FolderInput } from "@/components/folder-picker"
 import { AppearancePanel } from "@/components/appearance-dialog"
 import { IntegrationsSection } from "@/components/integrations-section"
 import { NotificationsPanel } from "@/components/notifications-dialog"
@@ -264,18 +266,19 @@ export function SettingsPage({ onSignedOut }: { onSignedOut: () => void }) {
               {section === "downloads" && (
                 <Section title="Downloads" description="Where torrents go, how they start, and when their files move.">
                   <FieldGroup>
+                    <DownloadFolderCheck />
                     <Field data-disabled={locked("downloads.default_save_path") || undefined}>
                       <HelpLabel htmlFor="save-path" help="save_path">
                         Default save folder
                         <Locked on={locked("downloads.default_save_path")} />
                       </HelpLabel>
-                      <Input
+                      <FolderInput
                         id="save-path"
-                        className="data"
+                        title="Default save folder"
                         placeholder={server.effective_download_dir}
                         disabled={locked("downloads.default_save_path")}
                         value={draft.downloads.default_save_path}
-                        onChange={(e) => set("downloads", { default_save_path: e.target.value })}
+                        onChange={(v) => set("downloads", { default_save_path: v })}
                       />
                       <FieldDescription>
                         Torrents with a category go in a subfolder named after it, unless the category has its own folder. Leave empty to use {server.effective_download_dir}.
@@ -300,12 +303,12 @@ export function SettingsPage({ onSignedOut }: { onSignedOut: () => void }) {
                         <HelpLabel htmlFor="incomplete-dir" help="incomplete_dir">
                           Unfinished downloads folder
                         </HelpLabel>
-                        <Input
+                        <FolderInput
                           id="incomplete-dir"
-                          className="data"
+                          title="Unfinished downloads folder"
                           placeholder={`${server.effective_download_dir}/incomplete`}
                           value={draft.downloads.incomplete_dir}
-                          onChange={(e) => set("downloads", { incomplete_dir: e.target.value })}
+                          onChange={(v) => set("downloads", { incomplete_dir: v })}
                         />
                         <FieldDescription>
                           Leave empty to use an "incomplete" folder inside the save folder. Only affects torrents added from now on.
@@ -700,7 +703,7 @@ function CategoriesAndTags() {
           </Field>
           <Field className="min-w-48 flex-1">
             <FieldLabel htmlFor="cat-path">Folder (optional)</FieldLabel>
-            <Input id="cat-path" className="data" placeholder="/data/movies" value={newCat.path} onChange={(e) => setNewCat({ ...newCat, path: e.target.value })} />
+            <FolderInput id="cat-path" title="Folder for the new category" placeholder="/data/movies" value={newCat.path} onChange={(v) => setNewCat({ ...newCat, path: v })} />
           </Field>
           <Button type="submit" disabled={!newCat.name.trim()}>
             <PlusIcon data-icon="inline-start" />
@@ -756,17 +759,33 @@ function CategoriesAndTags() {
   )
 }
 
+/** Says so, right where it's fixed, when Swarmy can't write to the download folder. */
+function DownloadFolderCheck() {
+  const { data: info } = usePoll<ServerInfo>(api.info, 10000)
+  if (!info?.download_dir_problem) return null
+  return (
+    <Alert variant="destructive">
+      <CircleAlertIcon />
+      <AlertTitle>Downloads will fail until this is fixed</AlertTitle>
+      <AlertDescription className="[overflow-wrap:anywhere]">
+        {info.download_dir_problem} Pick another folder below, or give Swarmy's user access to this one.
+      </AlertDescription>
+    </Alert>
+  )
+}
+
 function CategoryRow({ name, path, onSave, onDelete }: { name: string; path: string; onSave: (p: string) => void; onDelete: () => void }) {
   const [value, setValue] = useState(path)
   return (
     <li className="flex flex-wrap items-center gap-2 p-2.5">
       <span className="w-36 truncate text-[13px] font-medium" title={name}>{name}</span>
-      <Input
+      <FolderInput
         aria-label={`Folder for ${name}`}
-        className="data h-8 min-w-48 flex-1"
+        title={`Folder for ${name}`}
+        className="h-8 min-w-48 flex-1"
         placeholder="Subfolder of the default save folder"
         value={value}
-        onChange={(e) => setValue(e.target.value)}
+        onChange={setValue}
       />
       <Button size="sm" variant="outline" disabled={value === path} onClick={() => onSave(value.trim())}>
         Save
@@ -1051,14 +1070,14 @@ function UsenetSection({
             <HelpLabel htmlFor="nzb-complete" help="usenet_complete_dir">
               Finished downloads
             </HelpLabel>
-            <Input id="nzb-complete" className="data" placeholder="<download folder>/usenet" value={u.complete_dir} onChange={(e) => set("usenet", { complete_dir: e.target.value })} />
+            <FolderInput id="nzb-complete" title="Finished Usenet downloads" placeholder="<download folder>/usenet" value={u.complete_dir} onChange={(v) => set("usenet", { complete_dir: v })} />
             <FieldDescription>Each download gets its own folder, inside a folder for its category. Leave empty for the default.</FieldDescription>
           </Field>
           <Field>
             <HelpLabel htmlFor="nzb-incomplete" help="usenet_incomplete_dir">
               Unfinished downloads
             </HelpLabel>
-            <Input id="nzb-incomplete" className="data" placeholder="<download folder>/usenet/incomplete" value={u.incomplete_dir} onChange={(e) => set("usenet", { incomplete_dir: e.target.value })} />
+            <FolderInput id="nzb-incomplete" title="Unfinished Usenet downloads" placeholder="<download folder>/usenet/incomplete" value={u.incomplete_dir} onChange={(v) => set("usenet", { incomplete_dir: v })} />
           </Field>
           <Field>
             <HelpLabel htmlFor="nzb-speed" help="usenet_speed">

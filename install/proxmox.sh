@@ -19,6 +19,10 @@
 #   DOWNLOADS_SUBDIR=downloads      ...in this folder on it
 #   DOWNLOADS_HOST=/some/host/path  or download to any folder on the host
 #   DOWNLOADS_CHOWN=1     let the container write to a download folder that already existed
+#   CT_PASSWORD=...       root password for the container's console (default: the console
+#                         signs in as root by itself; only Proxmox users can open it)
+#   SMB_FIX=1             if the download share is SMB and the container can't write to it,
+#                         remount it so containers can (see the note printed if this happens)
 #   KEEP_ON_FAILURE=1     keep the container if setup fails, to look into it
 set -euo pipefail
 
@@ -176,6 +180,18 @@ share_field() { # name field-number (2 = type, 3 = path)
 share_type() { share_field "$1" 2; }
 share_path() { share_field "$1" 3; }
 
+# A setting of a storage in storage.cfg, e.g. cfg_value backup content.
+cfg_value() {
+  awk -v want="$1" -v key="$2" '
+    /^[a-z]+:[ \t]/ { name = $2; next }
+    name == want && $1 == key { $1 = ""; sub(/^ /, ""); print; exit }
+  ' "$STORAGE_CFG"
+}
+
+# Run in the container. The host's locale (often en_US.UTF-8) isn't installed
+# in a fresh container; C.UTF-8 always is.
+ct() { pct exec "$CTID" -- env LANG=C.UTF-8 LC_ALL=C.UTF-8 "$@"; }
+
 # ---------------------------------------------------------------- ask
 
 STORAGE="${STORAGE:-}"
@@ -240,6 +256,36 @@ elif [ -n "${DOWNLOADS_HOST:-}" ]; then
   HOST_DL="$DOWNLOADS_HOST"
 fi
 
+ROOT_PW="${CT_PASSWORD:-}"
+if [ "$INTERACTIVE" = 1 ] && [ -z "$ROOT_PW" ]; then
+  while true; do
+    if [ "$WT" = 1 ]; then
+      ROOT_PW="$(whiptail --backtitle "$TITLE" --title "Swarmy" --passwordbox "Root password for the container's console.
+
+Leave it empty and the console signs in as root by itself (only people who
+can use this Proxmox can open it). You can set one later: pct exec $CTID -- passwd" 14 78 3>&1 1>&2 2>&3)" || die "cancelled."
+    else
+      read -rsp "Root password for the container's console (Enter for none, the console signs in by itself): " ROOT_PW
+      echo
+    fi
+    [ -z "$ROOT_PW" ] && break
+    if [ "$WT" = 1 ]; then
+      again="$(whiptail --backtitle "$TITLE" --title "Swarmy" --passwordbox "The same password again:" 10 78 3>&1 1>&2 2>&3)" || die "cancelled."
+    else
+      read -rsp "The same password again: " again
+      echo
+    fi
+    [ "$ROOT_PW" = "$again" ] && break
+    if [ "$WT" = 1 ]; then
+      whiptail --backtitle "$TITLE" --title "Swarmy" --msgbox "Those didn't match. Try again." 8 50
+    else
+      echo "Those didn't match. Try again."
+    fi
+  done
+fi
+CONSOLE="signs in as root by itself"
+[ -n "$ROOT_PW" ] && CONSOLE="root, with the password you chose"
+
 if [ "$INTERACTIVE" = 1 ]; then
   mapped="none"
   [ "${#SHARE_LIST[@]}" -gt 0 ] && mapped="$(printf '/mnt/%s ' "${SHARE_LIST[@]}")"
@@ -251,6 +297,7 @@ if [ "$INTERACTIVE" = 1 ]; then
   Shares      $mapped
   Downloads   $CT_DL${HOST_DL:+
               ($HOST_DL on this host)}
+  Console     $CONSOLE
 
 Create it and install Swarmy?" || die "cancelled; nothing was changed."
 fi
@@ -319,29 +366,43 @@ pct start "$CTID" || die "the container wouldn't start (the error is above). If 
 
 say "Waiting for the container's network"
 for _ in $(seq 1 30); do
-  if pct exec "$CTID" -- getent hosts github.com >/dev/null 2>&1; then break; fi
+  if ct getent hosts github.com >/dev/null 2>&1; then break; fi
   sleep 2
 done
-pct exec "$CTID" -- getent hosts github.com >/dev/null 2>&1 \
+ct getent hosts github.com >/dev/null 2>&1 \
   || die "container $CTID has no network or DNS. Check that bridge $BRIDGE hands out addresses by DHCP."
 
+say "Setting up the console"
+if [ -n "$ROOT_PW" ]; then
+  # Through stdin, so the password never appears in a process list.
+  printf 'root:%s\n' "$ROOT_PW" | pct exec "$CTID" -- chpasswd
+else
+  # shellcheck disable=SC2016 # $TERM is for systemd to expand, not us.
+  printf '%s\n' '[Service]' 'ExecStart=' \
+    'ExecStart=-/sbin/agetty --autologin root --noclear --keep-baud tty%I 115200,38400,9600 $TERM' \
+    | ct sh -c 'mkdir -p /etc/systemd/system/container-getty@1.service.d \
+        && cat > /etc/systemd/system/container-getty@1.service.d/autologin.conf \
+        && systemctl daemon-reload && systemctl restart container-getty@1.service'
+fi
+
 say "Installing Swarmy inside the container"
-pct exec "$CTID" -- env DEBIAN_FRONTEND=noninteractive bash -c "apt-get update -qq && apt-get install -y -qq curl ca-certificates >/dev/null"
-pct exec "$CTID" -- env SWARMY_PORT="$PORT" SWARMY_DOWNLOADS="$CT_DL" \
-  bash -c "curl -fsSL $RAW/install.sh | bash" >/dev/null
+ct env DEBIAN_FRONTEND=noninteractive bash -c "apt-get update -qq && apt-get install -y -qq curl ca-certificates >/dev/null"
+ct env SWARMY_PORT="$PORT" SWARMY_DOWNLOADS="$CT_DL" \
+  bash -c "curl -fsSL $RAW/install.sh | bash" >/dev/null 2>&1 \
+  || die "installing Swarmy in the container failed. Run it there to see why: pct exec $CTID -- bash -c \"curl -fsSL $RAW/install.sh | bash\""
 FINISHED=1
 
 # ---------------------------------------------------------------- downloads
 
 can_write() {
-  pct exec "$CTID" -- runuser -u swarmy -- sh -c \
+  ct runuser -u swarmy -- sh -c \
     "touch '$CT_DL/.swarmy-write-test' && rm -f '$CT_DL/.swarmy-write-test'" >/dev/null 2>&1
 }
 WRITABLE=1
 if [ -n "$HOST_DL" ] && ! can_write; then
   # An unprivileged container's users are shifted by 100000 on the host.
-  HOST_UID=$((100000 + $(pct exec "$CTID" -- id -u swarmy)))
-  HOST_GID=$((100000 + $(pct exec "$CTID" -- id -g swarmy)))
+  HOST_UID=$((100000 + $(ct id -u swarmy)))
+  HOST_GID=$((100000 + $(ct id -g swarmy)))
   give=0
   if [ "$MADE_DL" = 1 ] || [ "${DOWNLOADS_CHOWN:-0}" = "1" ]; then
     give=1
@@ -357,10 +418,52 @@ Only that folder changes, not what's in it."; then
   can_write || WRITABLE=0
 fi
 
+# SMB shares are mounted for the host's root only. They can be remounted so
+# every container can write: Sonarr and Radarr, in their own containers, need
+# to move and delete what Swarmy downloads too, so ownership alone won't do.
+if [ "$WRITABLE" = 0 ] && [ "$DL_TYPE" = cifs ]; then
+  fix=0
+  holds_backups=""
+  case ",$(cfg_value "$DL_SHARE" content)," in *,backup,*) holds_backups=1 ;; esac
+  if [ "${SMB_FIX:-0}" = "1" ]; then
+    fix=1
+  elif [ "$INTERACTIVE" = 1 ] && ask_yesno "Swarmy can't write to $DL_SHARE: Proxmox mounts SMB shares so only
+this host's root can write, and the container isn't root here.
+
+Remount $DL_SHARE so every container can write to it? That adds
+file_mode=0666,dir_mode=0777 to its mount options (other mount options
+stay), stops this container for a moment, and needs nothing else using
+the share right now.${holds_backups:+
+
+Careful: $DL_SHARE also holds Proxmox backups. Any container could then
+change them. A separate share for downloads is better.}"; then
+    fix=1
+  fi
+  if [ "$fix" = 1 ]; then
+    mount_path="$(share_path "$DL_SHARE")"
+    old="$(cfg_value "$DL_SHARE" options)"
+    kept="$(printf '%s' "$old" | tr ',' '\n' | grep -vE '^(file_mode|dir_mode)=' | paste -sd, -)"
+    opts="${kept:+$kept,}file_mode=0666,dir_mode=0777"
+    say "Remounting $DL_SHARE with $opts"
+    pct stop "$CTID" >/dev/null
+    pvesm set "$DL_SHARE" --options "$opts"
+    if umount "$mount_path" 2>/dev/null; then
+      pvesm status --storage "$DL_SHARE" >/dev/null 2>&1 || true
+      for _ in $(seq 1 10); do mountpoint -q "$mount_path" && break; sleep 1; done
+      mountpoint -q "$mount_path" || warn "$DL_SHARE didn't mount again by itself; Proxmox remounts it within a minute, or run: pvesm status"
+    else
+      warn "$mount_path is in use (another container maps it?), so it'll pick up the new options at its next mount, e.g. after a reboot."
+    fi
+    pct start "$CTID"
+    for _ in $(seq 1 15); do ct systemctl is-active -q swarmy 2>/dev/null && break; sleep 1; done
+    if can_write; then WRITABLE=1; fi
+  fi
+fi
+
 # ---------------------------------------------------------------- done
 
-IP="$(pct exec "$CTID" -- hostname -I | awk '{print $1}')"
-PW="$(pct exec "$CTID" -- journalctl -u swarmy --no-pager -o cat 2>/dev/null | sed -n 's/^ *password: *//p' | tail -n1)"
+IP="$(ct hostname -I | awk '{print $1}')"
+PW="$(ct journalctl -u swarmy --no-pager -o cat 2>/dev/null | sed -n 's/^ *password: *//p' | tail -n1)"
 echo
 say "Swarmy is running in container $CTID ($NAME)"
 echo
@@ -371,7 +474,7 @@ echo "  Downloads:  $CT_DL${HOST_DL:+  ($HOST_DL on this host)}"
 for s in "${SHARE_LIST[@]}"; do echo "  Mapped:     /mnt/$s  ($(share_path "$s"))"; done
 echo
 echo "  Upgrade:    pct exec $CTID -- bash -c \"curl -fsSL $RAW/install.sh | bash\""
-echo "  Shell:      pct enter $CTID"
+echo "  Shell:      pct enter $CTID  (the console $CONSOLE)"
 
 if [ "$WRITABLE" = 0 ]; then
   echo
@@ -382,10 +485,10 @@ if [ "$WRITABLE" = 0 ]; then
       echo "  that folder to uid $HOST_UID, or set the share to map all users to one that can write (all_squash"
       echo "  with anonuid and anongid)." ;;
     cifs)
-      echo "  Proxmox mounts SMB shares for root only, and the container isn't root on this host. Mount the"
-      echo "  share for the container's user instead, for example:"
-      echo "    pvesm set $DL_SHARE --options uid=$HOST_UID,gid=$HOST_GID,file_mode=0664,dir_mode=0775"
-      echo "  then disable and re-enable the storage so it remounts." ;;
+      echo "  Proxmox mounts SMB shares so only this host's root can write, and the container isn't root here."
+      echo "  Re-run with SMB_FIX=1 to remount it so containers can write, or by hand:"
+      echo "    pvesm set $DL_SHARE --options file_mode=0666,dir_mode=0777"
+      echo "  then, with nothing using it: umount $(share_path "$DL_SHARE") && pvesm status" ;;
     *)
       echo "  Run: chown $HOST_UID:$HOST_GID $HOST_DL" ;;
   esac

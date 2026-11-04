@@ -41,3 +41,6 @@ flate2 = "1"
 # system libssl requirement. Windows uses the OS TLS stack.
 [target.'cfg(target_os = "linux")'.dependencies]
 openssl = { version = "0.10", features = ["vendored"] }
+
+[dev-dependencies]
+tempfile = "3"

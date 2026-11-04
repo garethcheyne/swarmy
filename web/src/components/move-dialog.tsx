@@ -1,11 +1,11 @@
-import { useId, useState, type FormEvent } from "react"
+import { useState, type FormEvent } from "react"
 import { toast } from "sonner"
 
 import { api, type Torrent } from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field"
-import { Input } from "@/components/ui/input"
+import { FolderInput } from "@/components/folder-picker"
 import { Spinner } from "@/components/ui/spinner"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 
@@ -18,19 +18,15 @@ export function MoveDialog({
   open,
   onOpenChange,
   targets,
-  folders,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
   targets: Torrent[]
-  /** Folders to suggest: where other torrents already live. */
-  folders: string[]
 }) {
   const first = targets[0]
   const [mode, setMode] = useState<Mode>("folder")
   const [path, setPath] = useState(first?.save_path ?? "")
   const [pending, setPending] = useState(false)
-  const listId = useId()
 
   const one = targets.length === 1
   const trimmed = path.trim()
@@ -82,21 +78,7 @@ export function MoveDialog({
             {mode === "folder" ? (
               <Field data-invalid={invalid || undefined}>
                 <FieldLabel htmlFor="move-path">Folder</FieldLabel>
-                <Input
-                  id="move-path"
-                  className="data"
-                  list={listId}
-                  autoFocus
-                  aria-invalid={invalid || undefined}
-                  value={path}
-                  onChange={(e) => setPath(e.target.value)}
-                  placeholder="/data/torrents"
-                />
-                <datalist id={listId}>
-                  {folders.map((f) => (
-                    <option key={f} value={f} />
-                  ))}
-                </datalist>
+                <FolderInput id="move-path" title="Move to" value={path} onChange={setPath} placeholder="/data/torrents" />
                 {invalid ? (
                   <FieldError>Give the full path, starting from the top, like /data/torrents.</FieldError>
                 ) : (

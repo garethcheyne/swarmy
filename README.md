@@ -31,6 +31,8 @@ It asks a few questions, then shows a summary before creating anything:
    are listed; each one you tick appears in the container at `/mnt/<name>`. Swarmy can download to one, and move
    finished downloads onto any of them.
 3. **Where downloads go:** a folder on one of those shares (it's created if needed), or inside the container.
+4. **A root password for the container's console.** Leave it empty and the console signs in as root by itself; only
+   people who can use your Proxmox can open it.
 
 The container is unprivileged Debian (2 cores, 1 GB RAM, 8 GB disk), starts with the host, and gets its address by
 DHCP. When it's done, the script prints the address to open and the first sign-in password, and checks Swarmy can
@@ -50,6 +52,8 @@ To skip the questions, give the answers up front and add `NONINTERACTIVE=1`:
 | `SHARES` | none | storages to map, e.g. `"NAS-Public NAS-Media"` |
 | `DOWNLOADS_SHARE`, `DOWNLOADS_SUBDIR` | none, `downloads` | download to this folder on a mapped storage |
 | `DOWNLOADS_HOST` | none | or download to any folder on the host |
+| `CT_PASSWORD` | none | root password for the console (none: the console signs in by itself) |
+| `SMB_FIX` | off | `1` remounts an SMB download share so containers can write to it |
 | `KEEP_ON_FAILURE` | off | `1` keeps the container if setup fails |
 
 For example, mapping two NAS shares and downloading to the first:

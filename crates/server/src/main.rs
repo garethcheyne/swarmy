@@ -4,6 +4,7 @@ mod api;
 mod auth;
 mod changelog;
 mod config;
+mod folders;
 mod geo;
 mod mover;
 mod policy;
@@ -75,11 +76,10 @@ async fn main() -> anyhow::Result<()> {
         conn.ipv4_only = v;
         locked.push("connection.ipv4_only");
     }
-    if cfg.download_dir.is_some() {
-        locked.push("downloads.default_save_path");
-    }
+    // --download-dir is only the default: a folder chosen in Settings wins, so
+    // installers and Docker can set it without locking people out of changing it.
     let saved_dir = store.read(|d| d.settings.downloads.default_save_path.clone());
-    let download_dir = if cfg.download_dir.is_none() && !saved_dir.trim().is_empty() {
+    let download_dir = if !saved_dir.trim().is_empty() {
         std::path::PathBuf::from(saved_dir.trim())
     } else {
         download_dir
@@ -127,7 +127,8 @@ async fn main() -> anyhow::Result<()> {
         engine: engine.clone(),
         store,
         auth: Auth::default(),
-        fallback_download_dir: download_dir.clone(),
+        // What Settings falls back to when its folder is cleared.
+        fallback_download_dir: cfg.download_dir(),
         data_dir: data_dir.clone(),
         locked,
         startup_connection: conn,

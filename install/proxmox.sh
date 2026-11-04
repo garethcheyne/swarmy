@@ -21,6 +21,7 @@
 #   DOWNLOADS_CHOWN=1     let the container write to a download folder that already existed
 #   CT_PASSWORD=...       root password for the container's console (default: the console
 #                         signs in as root by itself; only Proxmox users can open it)
+#   AUTO_UPDATE=0         don't install system updates by themselves (default: on, daily)
 #   SMB_FIX=1             if the download share is SMB and the container can't write to it,
 #                         remount it so containers can (see the note printed if this happens)
 #   KEEP_ON_FAILURE=1     keep the container if setup fails, to look into it
@@ -45,12 +46,12 @@ command -v whiptail >/dev/null && WT=1
 # ---------------------------------------------------------------- questions
 
 TITLE="Swarmy installer"
-ask_yesno() { # text
+ask_yesno() { # text [question for the plain prompt]
   if [ "$WT" = 1 ]; then
     whiptail --backtitle "$TITLE" --title "Swarmy" --yesno "$1" 22 78
   else
     printf '%s\n' "$1"
-    read -rp "Continue? [Y/n] " a
+    read -rp "${2:-Continue?} [Y/n] " a
     [[ ! "$a" =~ ^[Nn] ]]
   fi
 }
@@ -286,6 +287,24 @@ fi
 CONSOLE="signs in as root by itself"
 [ -n "$ROOT_PW" ] && CONSOLE="root, with the password you chose"
 
+AUTO_UPDATE="${AUTO_UPDATE:-}"
+if [ "$INTERACTIVE" = 1 ] && [ -z "$AUTO_UPDATE" ]; then
+  if ask_yesno "Keep the container's system packages up to date by themselves?
+
+Once a day, Debian's unattended-upgrades installs security fixes and
+stable updates for the container's packages. The container uses this
+host's kernel, so it never needs a reboot for them.
+
+Swarmy itself isn't touched: upgrade it with the command shown at the end." "Turn on automatic updates?"; then
+    AUTO_UPDATE=1
+  else
+    AUTO_UPDATE=0
+  fi
+fi
+[ "$AUTO_UPDATE" = 0 ] || AUTO_UPDATE=1
+UPDATES="off"
+[ "$AUTO_UPDATE" = 1 ] && UPDATES="system packages update daily, by themselves"
+
 if [ "$INTERACTIVE" = 1 ]; then
   mapped="none"
   [ "${#SHARE_LIST[@]}" -gt 0 ] && mapped="$(printf '/mnt/%s ' "${SHARE_LIST[@]}")"
@@ -298,6 +317,7 @@ if [ "$INTERACTIVE" = 1 ]; then
   Downloads   $CT_DL${HOST_DL:+
               ($HOST_DL on this host)}
   Console     $CONSOLE
+  Updates     $UPDATES
 
 Create it and install Swarmy?" || die "cancelled; nothing was changed."
 fi
@@ -316,9 +336,17 @@ cleanup() {
       pct stop "$CTID" >/dev/null 2>&1 || true
       pct destroy "$CTID" --purge >/dev/null 2>&1 || true
     fi
+  elif [ "$status" -ne 0 ] && [ "$FINISHED" = 1 ]; then
+    warn "Swarmy is installed in container $CTID, but the installer didn't finish its last steps (pct start $CTID if it's stopped)."
+    echo "  Username:   admin" >&2
+    echo "  Password:   pct exec $CTID -- journalctl -u swarmy | grep password" >&2
+    echo "  Address:    pct exec $CTID -- ip -4 addr show eth0   (web UI on port $PORT)" >&2
   fi
 }
 trap cleanup EXIT
+# Never stop without saying where: set -e alone exits silently.
+set -E
+trap 'warn "the installer stopped at line $LINENO, running: $BASH_COMMAND"' ERR
 
 say "Finding the latest Debian template for $ARCH"
 pveam update >/dev/null || true
@@ -387,6 +415,18 @@ fi
 
 say "Installing Swarmy inside the container"
 ct env DEBIAN_FRONTEND=noninteractive bash -c "apt-get update -qq && apt-get install -y -qq curl ca-certificates >/dev/null"
+
+if [ "$AUTO_UPDATE" = 1 ]; then
+  say "Turning on automatic updates"
+  ct env DEBIAN_FRONTEND=noninteractive apt-get install -y -qq unattended-upgrades >/dev/null
+  # apt's own daily timers run it. Debian's default takes security fixes and
+  # point releases; add stable updates too, and clear out what's no longer needed.
+  printf '%s\n' 'APT::Periodic::Update-Package-Lists "1";' 'APT::Periodic::Unattended-Upgrade "1";' \
+    'APT::Periodic::AutocleanInterval "7";' | ct sh -c 'cat > /etc/apt/apt.conf.d/20auto-upgrades'
+  # shellcheck disable=SC2016 # ${distro_codename} is for unattended-upgrades to expand.
+  printf '%s\n' 'Unattended-Upgrade::Origins-Pattern { "origin=Debian,codename=${distro_codename}-updates"; };' \
+    'Unattended-Upgrade::Remove-Unused-Dependencies "true";' | ct sh -c 'cat > /etc/apt/apt.conf.d/52swarmy-upgrades'
+fi
 ct env SWARMY_PORT="$PORT" SWARMY_DOWNLOADS="$CT_DL" \
   bash -c "curl -fsSL $RAW/install.sh | bash" >/dev/null 2>&1 \
   || die "installing Swarmy in the container failed. Run it there to see why: pct exec $CTID -- bash -c \"curl -fsSL $RAW/install.sh | bash\""
@@ -442,7 +482,8 @@ change them. A separate share for downloads is better.}"; then
   if [ "$fix" = 1 ]; then
     mount_path="$(share_path "$DL_SHARE")"
     old="$(cfg_value "$DL_SHARE" options)"
-    kept="$(printf '%s' "$old" | tr ',' '\n' | grep -vE '^(file_mode|dir_mode)=' | paste -sd, -)"
+    # grep finds nothing when the share has no other options; that's fine.
+    kept="$(printf '%s' "$old" | tr ',' '\n' | { grep -vE '^(file_mode|dir_mode)=' || true; } | paste -sd, -)"
     opts="${kept:+$kept,}file_mode=0666,dir_mode=0777"
     say "Remounting $DL_SHARE with $opts"
     pct stop "$CTID" >/dev/null
@@ -462,12 +503,13 @@ fi
 
 # ---------------------------------------------------------------- done
 
-IP="$(ct hostname -I | awk '{print $1}')"
-PW="$(ct journalctl -u swarmy --no-pager -o cat 2>/dev/null | sed -n 's/^ *password: *//p' | tail -n1)"
+# Neither of these is worth failing over, now Swarmy is installed.
+IP="$(ct ip -4 -o addr show scope global 2>/dev/null | awk '{sub(/\/.*/, "", $4); print $4; exit}')" || IP=""
+PW="$(ct journalctl -u swarmy --no-pager -o cat 2>/dev/null | sed -n 's/^ *password: *//p' | tail -n1)" || PW=""
 echo
 say "Swarmy is running in container $CTID ($NAME)"
 echo
-echo "  Open:       http://$IP:$PORT"
+echo "  Open:       http://${IP:-<container address>}:$PORT"
 echo "  Username:   admin"
 echo "  Password:   ${PW:-run: pct exec $CTID -- journalctl -u swarmy | grep password}"
 echo "  Downloads:  $CT_DL${HOST_DL:+  ($HOST_DL on this host)}"
@@ -475,6 +517,9 @@ for s in "${SHARE_LIST[@]}"; do echo "  Mapped:     /mnt/$s  ($(share_path "$s")
 echo
 echo "  Upgrade:    pct exec $CTID -- bash -c \"curl -fsSL $RAW/install.sh | bash\""
 echo "  Shell:      pct enter $CTID  (the console $CONSOLE)"
+if [ "$AUTO_UPDATE" = 1 ]; then
+  echo "  Updates:    daily, by themselves. What ran: pct exec $CTID -- cat /var/log/unattended-upgrades/unattended-upgrades.log"
+fi
 
 if [ "$WRITABLE" = 0 ]; then
   echo

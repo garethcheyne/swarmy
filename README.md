@@ -53,6 +53,7 @@ To skip the questions, give the answers up front and add `NONINTERACTIVE=1`:
 | `DOWNLOADS_SHARE`, `DOWNLOADS_SUBDIR` | none, `downloads` | download to this folder on a mapped storage |
 | `DOWNLOADS_HOST` | none | or download to any folder on the host |
 | `CT_PASSWORD` | none | root password for the console (none: the console signs in by itself) |
+| `AUTO_UPDATE` | on | `0` turns off daily automatic updates of the container's system packages |
 | `SMB_FIX` | off | `1` remounts an SMB download share so containers can write to it |
 | `KEEP_ON_FAILURE` | off | `1` keeps the container if setup fails |
 

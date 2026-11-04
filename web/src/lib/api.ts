@@ -214,7 +214,6 @@ export interface Settings {
     lockout_minutes: number
     trusted_proxies: string[]
     qbit_api: boolean
-    api_key_hash: string
   }
   peer_map: { locations: boolean; home: GeoPoint | null }
   usenet: UsenetSettings
@@ -329,6 +328,18 @@ export interface PeerMap {
   places: PeerPlace[]
 }
 
+/** A named API key. The key itself is only ever shown when it's made. */
+export interface ApiKey {
+  id: string
+  name: string
+  /** The key's last four characters. Empty for a key made before keys had names. */
+  hint: string
+  created: number
+  expires: number | null
+  last_used: number | null
+  expired: boolean
+}
+
 export interface SettingsResponse {
   settings: Settings
   locked: string[]
@@ -336,7 +347,6 @@ export interface SettingsResponse {
   sessions: number
   effective_download_dir: string
   data_dir: string
-  api_key_set: boolean
   qbit_version: string
   qbit_webapi: string
 }
@@ -448,8 +458,12 @@ export const api = {
   deleteTag: (name: string) => request<void>(`/tags/${encodeURIComponent(name)}`, { method: "DELETE" }),
   changePassword: (body: { current_password: string; username?: string; new_password?: string }) =>
     request<{ signed_out: number }>("/auth/password", json(body)),
-  createApiKey: () => request<{ api_key: string }>("/apikey", { method: "POST" }),
-  deleteApiKey: () => request<void>("/apikey", { method: "DELETE" }),
+  apiKeys: () => request<ApiKey[]>("/keys"),
+  createApiKey: (name: string, expires: number | null) =>
+    request<ApiKey & { key: string }>("/keys", json({ name, expires })),
+  renameApiKey: (id: string, name: string) =>
+    request<ApiKey>(`/keys/${encodeURIComponent(id)}`, { ...json({ name }), method: "PATCH" }),
+  revokeApiKey: (id: string) => request<void>(`/keys/${encodeURIComponent(id)}`, { method: "DELETE" }),
   logoutOthers: () => request<{ signed_out: number }>("/auth/logout-others", { method: "POST" }),
   pieces: (hash: string, buckets = 216) =>
     request<PieceMap>(`/torrents/${hash}/pieces?buckets=${buckets}`),

@@ -356,7 +356,9 @@ pub struct WebUiSettings {
     pub trusted_proxies: Vec<String>,
     /// Serve the qBittorrent-compatible API at /api/v2 (Sonarr, Radarr, Prowlarr…).
     pub qbit_api: bool,
-    /// SHA-256 (hex) of the API key; empty = no key. The key itself is shown once.
+    /// The single API key from before keys had names (SHA-256 hex). Moved
+    /// into `StoreData::api_keys` when Swarmy starts; read only for that.
+    #[serde(skip_serializing_if = "String::is_empty")]
     pub api_key_hash: String,
 }
 
@@ -454,6 +456,9 @@ pub struct StoreData {
     /// Finished Usenet jobs, newest first.
     #[serde(default)]
     pub usenet_history: Vec<swarmy_usenet::JobView>,
+    /// API keys for Sonarr, Radarr and the like.
+    #[serde(default)]
+    pub api_keys: Vec<crate::keys::ApiKey>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -472,12 +477,15 @@ pub struct Store {
 
 impl Store {
     pub fn open(path: PathBuf) -> anyhow::Result<Self> {
-        let data = match std::fs::read(&path) {
+        let mut data: StoreData = match std::fs::read(&path) {
             Ok(bytes) => serde_json::from_slice(&bytes)
                 .with_context(|| format!("parsing {}", path.display()))?,
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => StoreData::default(),
             Err(e) => return Err(e).with_context(|| format!("reading {}", path.display())),
         };
+        if crate::keys::migrate(&mut data) {
+            write_atomic(&path, &serde_json::to_vec_pretty(&data)?)?;
+        }
         Ok(Self {
             path,
             data: Mutex::new(data),

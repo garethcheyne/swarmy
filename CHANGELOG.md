@@ -11,6 +11,19 @@ lists. Versions are `yyyy.mm.dd.build`: the release date, then 1 for the
 first release that day, 2 for the next, and so on. The top entry is the
 version Swarmy reports, and a release tag must match it.
 
+## [2026.11.05.4] - 2026-11-05
+
+Give each app its own API key.
+
+### New
+- As many API keys as you like, each with a name saying what it's for (Sonarr, Radarr, a script…). Revoke one and the others keep working.
+- Keys can expire: in 30 or 90 days, a year, or on a date you pick. Expired keys stop working and are marked, so you can see which app needs a new one.
+- Each key shows when it was last used, and its last four characters to match it with the app it's in.
+- Rename a key at any time.
+
+### Improved
+- Your existing API key keeps working. It's now listed as "API key"; rename it after the app that uses it.
+
 ## [2026.11.05.3] - 2026-11-05
 
 ### New

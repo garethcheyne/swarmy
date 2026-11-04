@@ -332,7 +332,6 @@ export function SettingsPage({ onSignedOut }: { onSignedOut: () => void }) {
                   set={set}
                   server={server}
                   username={username}
-                  onKeyChanged={(v) => setServer((s) => (s ? { ...s, api_key_set: v } : s))}
                 />
               )}
 

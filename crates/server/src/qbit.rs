@@ -27,7 +27,6 @@ use axum::{
 };
 use axum_extra::extract::cookie::CookieJar;
 use serde_json::{Value, json};
-use sha2::{Digest, Sha256};
 use swarmy_engine::TorrentState;
 
 use crate::{
@@ -106,14 +105,6 @@ async fn require_enabled(State(state): State<Shared>, req: Request, next: Next) 
     }
 }
 
-pub fn api_key_hash(key: &str) -> String {
-    Sha256::digest(key.as_bytes()).iter().map(|b| format!("{b:02x}")).collect()
-}
-
-fn constant_eq(a: &str, b: &str) -> bool {
-    a.len() == b.len() && a.bytes().zip(b.bytes()).fold(0u8, |acc, (x, y)| acc | (x ^ y)) == 0
-}
-
 /// Bearer API key or the shared `SID` session; anything else is a 403, which
 /// is what makes Sonarr log in again.
 async fn require_auth(State(state): State<Shared>, jar: CookieJar, req: Request, next: Next) -> Response {
@@ -123,11 +114,10 @@ async fn require_auth(State(state): State<Shared>, jar: CookieJar, req: Request,
         .and_then(|v| v.to_str().ok())
         .and_then(|v| v.strip_prefix("Bearer "))
         .map(str::trim);
-    if let Some(key) = bearer {
-        let stored = state.store.read(|d| d.settings.webui.api_key_hash.clone());
-        if !stored.is_empty() && constant_eq(&api_key_hash(key), &stored) {
-            return next.run(req).await;
-        }
+    if let Some(key) = bearer
+        && crate::keys::verify(&state.store, key)
+    {
+        return next.run(req).await;
     }
     match jar.get(COOKIE_NAME) {
         Some(c) if auth::session_valid(&state.store, c.value()) => next.run(req).await,
@@ -1049,12 +1039,5 @@ mod tests {
         let mut up = view(TorrentState::Seeding, 1.0);
         up.upload_speed = 10;
         assert_eq!(qbit_state(&up), "uploading");
-    }
-
-    #[test]
-    fn api_key_compare() {
-        let h = api_key_hash("secret");
-        assert!(constant_eq(&h, &api_key_hash("secret")));
-        assert!(!constant_eq(&h, &api_key_hash("other")));
     }
 }

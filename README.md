@@ -113,7 +113,7 @@ The [compose file](deploy/docker-compose.yml) also shows how to run Swarmy behin
 
 ## Sonarr, Radarr and Prowlarr
 
-Create an API key in **Settings → Sonarr and Radarr**; the page walks through each step.
+Create an API key for each app in **Settings → Sonarr and Radarr**: name it after the app, and give it an expiry date if you like. You can see when each key was last used and revoke one without breaking the others. The page walks through each step.
 
 - **Torrents:** add a **qBittorrent** download client with Swarmy's host and port, and your Swarmy username and
   password (or the API key). Swarmy reports itself as qBittorrent 5.1 (Web API 2.11.4).

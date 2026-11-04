@@ -18,7 +18,7 @@ use axum::{
 use serde_json::{Value, json};
 use swarmy_usenet::{JobStatus, JobView, Priority};
 
-use crate::{auth, qbit::api_key_hash, state::Shared};
+use crate::{auth, state::Shared};
 
 /// SABnzbd version we report; Sonarr needs >= 1.0 and parses x.y.z.
 const VERSION: &str = "4.5.5";
@@ -60,8 +60,7 @@ pub async fn api(State(state): State<Shared>, ConnectInfo(peer): ConnectInfo<Soc
     }
     let key = q.get("apikey").or_else(|| q.get("nzbkey")).filter(|k| !k.is_empty());
     let authed = if let Some(key) = key {
-        let stored = state.store.read(|d| d.settings.webui.api_key_hash.clone());
-        !stored.is_empty() && api_key_hash(key) == stored
+        crate::keys::verify(&state.store, key)
     } else if let (Some(u), Some(p)) = (q.get("ma_username"), q.get("ma_password")) {
         auth::check_credentials(&state, u, p).await
     } else {

@@ -29,7 +29,6 @@ pub fn router(state: Shared) -> Router<Shared> {
         .route("/auth/logout-others", post(logout_others))
         .route("/settings", get(get_settings).put(put_settings))
         .route("/speed/alt", post(set_alt_speed))
-        .route("/apikey", post(create_api_key).delete(delete_api_key))
         .route("/tags", get(list_tags))
         .route("/tags/{name}", put(put_tag).delete(delete_tag))
         .route("/torrents", get(list_torrents).post(add_torrents))
@@ -61,6 +60,7 @@ pub fn router(state: Shared) -> Router<Shared> {
         // already exist when it's applied.
         .merge(crate::usenet::router())
         .merge(crate::folders::router())
+        .merge(crate::keys::router())
         .route_layer(middleware::from_fn_with_state(state, auth::require_session));
 
     Router::new()
@@ -219,9 +219,7 @@ async fn logout_others(State(state): State<Shared>, jar: CookieJar) -> ApiResult
 async fn get_settings(State(state): State<Shared>) -> Json<serde_json::Value> {
     let (mut settings, sessions) = state.store.read(|d| (d.settings.clone(), d.sessions.len()));
     let restart_needed = connection_changed(&state, &settings);
-    let api_key_set = !settings.webui.api_key_hash.is_empty();
-    // The browser never needs the key's hash, or Usenet server passwords.
-    settings.webui.api_key_hash.clear();
+    // The browser never needs Usenet server passwords.
     crate::usenet::redact(&mut settings.usenet);
     Json(serde_json::json!({
         "settings": settings,
@@ -230,7 +228,6 @@ async fn get_settings(State(state): State<Shared>) -> Json<serde_json::Value> {
         "sessions": sessions,
         "effective_download_dir": state.download_dir(),
         "data_dir": state.data_dir,
-        "api_key_set": api_key_set,
         "qbit_version": crate::qbit::APP_VERSION,
         "qbit_webapi": crate::qbit::WEBAPI_VERSION,
     }))
@@ -324,9 +321,7 @@ async fn put_settings(
     let locations_changed = new.peer_map.locations != state.store.read(|d| d.settings.peer_map.locations);
     let queue_turned_off = !new.queue.enabled && state.store.read(|d| d.settings.queue.enabled);
     state.store.update(|d| {
-        let key = std::mem::take(&mut d.settings.webui.api_key_hash);
         d.settings = new.clone();
-        d.settings.webui.api_key_hash = key;
     })?;
     if usenet_changed {
         crate::usenet::apply(&state);
@@ -369,20 +364,6 @@ async fn set_alt_speed(State(state): State<Shared>, Json(req): Json<AltReq>) -> 
 }
 
 // ---------- API key (qBittorrent-compatible API) ----------
-
-/// Make a new key, store only its hash, and return the key this once.
-async fn create_api_key(State(state): State<Shared>) -> ApiResult<Json<serde_json::Value>> {
-    let key: String = rand::random::<[u8; 24]>().iter().map(|b| format!("{b:02x}")).collect();
-    let key = format!("swarmy_{key}");
-    let hash = crate::qbit::api_key_hash(&key);
-    state.store.update(|d| d.settings.webui.api_key_hash = hash)?;
-    Ok(Json(serde_json::json!({ "api_key": key })))
-}
-
-async fn delete_api_key(State(state): State<Shared>) -> ApiResult<StatusCode> {
-    state.store.update(|d| d.settings.webui.api_key_hash.clear())?;
-    Ok(StatusCode::NO_CONTENT)
-}
 
 // ---------- tags ----------
 

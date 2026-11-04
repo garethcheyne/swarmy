@@ -238,7 +238,7 @@ export const SETTINGS_HELP = {
   sab_api: {
     title: "SABnzbd-compatible API",
     what: "Answers the same web API as SABnzbd, the most common Usenet downloader, at /api and /sabnzbd/api.",
-    effect: "Sonarr, Radarr and similar tools can add NZBs and track them, choosing SABnzbd as the download client. It needs the API key from Settings, Sonarr and Radarr.",
+    effect: "Sonarr, Radarr and similar tools can add NZBs and track them, choosing SABnzbd as the download client. It needs an API key from Settings, Sonarr and Radarr; make one for each app.",
   },
 } satisfies Record<string, HelpTopic>
 

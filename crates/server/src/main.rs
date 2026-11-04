@@ -6,6 +6,7 @@ mod changelog;
 mod config;
 mod folders;
 mod geo;
+mod keys;
 mod mover;
 mod policy;
 mod push;

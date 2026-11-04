@@ -1,16 +1,10 @@
 import { useState } from "react"
-import {
-  CheckIcon,
-  CopyIcon,
-  KeyRoundIcon,
-  TriangleAlertIcon,
-} from "lucide-react"
+import { CheckIcon, CopyIcon } from "lucide-react"
 import { toast } from "sonner"
 
-import { api, type Settings, type SettingsResponse } from "@/lib/api"
+import type { Settings, SettingsResponse } from "@/lib/api"
+import { ApiKeys } from "@/components/api-keys"
 import { SettingHelp } from "@/components/setting-help"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { Button } from "@/components/ui/button"
 import {
   Field,
   FieldContent,
@@ -23,7 +17,6 @@ import {
   InputGroupButton,
   InputGroupInput,
 } from "@/components/ui/input-group"
-import { Spinner } from "@/components/ui/spinner"
 import { Switch } from "@/components/ui/switch"
 
 function CopyValue({ label, value }: { label: string; value: string }) {
@@ -63,7 +56,6 @@ interface Props {
   draft: Settings
   set: <K extends keyof Settings>(key: K, patch: Partial<Settings[K]>) => void
   server: SettingsResponse
-  onKeyChanged: (set: boolean) => void
   username: string
 }
 
@@ -72,40 +64,10 @@ export function IntegrationsSection({
   draft,
   set,
   server,
-  onKeyChanged,
   username,
 }: Props) {
-  const [newKey, setNewKey] = useState<string | null>(null)
-  const [busy, setBusy] = useState(false)
-
   const https = location.protocol === "https:"
   const port = location.port || (https ? "443" : "80")
-
-  const createKey = async () => {
-    setBusy(true)
-    try {
-      const r = await api.createApiKey()
-      setNewKey(r.api_key)
-      onKeyChanged(true)
-    } catch (e) {
-      toast.error("Couldn't create an API key", {
-        description: e instanceof Error ? e.message : String(e),
-      })
-    } finally {
-      setBusy(false)
-    }
-  }
-  const revokeKey = async () => {
-    setBusy(true)
-    try {
-      await api.deleteApiKey()
-      setNewKey(null)
-      onKeyChanged(false)
-      toast.success("API key revoked. Apps using it can no longer connect.")
-    } finally {
-      setBusy(false)
-    }
-  }
 
   const rows: [string, string][] = [
     ["Host", location.hostname],
@@ -174,7 +136,7 @@ export function IntegrationsSection({
                     ))}
                     <dt className="text-muted-foreground">Password</dt>
                     <dd className="m-0">
-                      Your Swarmy password, or leave it empty and use an API key
+                      Your Swarmy password, or leave it empty and use an API key (below)
                     </dd>
                     <dt className="text-muted-foreground">Category</dt>
                     <dd className="m-0">
@@ -193,59 +155,7 @@ export function IntegrationsSection({
             </p>
           </section>
 
-          <section className="flex flex-col gap-4">
-            <div className="flex flex-col gap-1">
-              <h3 className="text-[13px] font-semibold">API key</h3>
-              <p className="text-[13px] text-muted-foreground">
-                Newer Sonarr and Radarr versions can use an API key instead of
-                your username and password. Paste it into their API key field.
-              </p>
-            </div>
-            {newKey && (
-              <Alert>
-                <TriangleAlertIcon />
-                <AlertTitle>Copy your key now</AlertTitle>
-                <AlertDescription className="flex flex-col gap-2">
-                  Swarmy keeps only a fingerprint of it, so it can't show this
-                  key again.
-                  <CopyValue label="API key" value={newKey} />
-                </AlertDescription>
-              </Alert>
-            )}
-            <div className="flex flex-wrap items-center gap-2">
-              {server.api_key_set ? (
-                <>
-                  <span className="mr-2 flex items-center gap-1.5 text-[13px]">
-                    <KeyRoundIcon className="size-4 text-down" />
-                    An API key is set
-                  </span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={createKey}
-                    disabled={busy}
-                  >
-                    {busy && <Spinner data-icon="inline-start" />}
-                    Replace key
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="text-destructive"
-                    onClick={revokeKey}
-                    disabled={busy}
-                  >
-                    Revoke key
-                  </Button>
-                </>
-              ) : (
-                <Button size="sm" onClick={createKey} disabled={busy}>
-                  {busy && <Spinner data-icon="inline-start" />}
-                  Create API key
-                </Button>
-              )}
-            </div>
-          </section>
+          <ApiKeys />
 
           <section className="flex flex-col gap-2 text-[13px]">
             <h3 className="font-semibold">Good to know</h3>
@@ -296,7 +206,7 @@ export function IntegrationsSection({
                     <span className="data">sabnzbd</span>, or leave it empty
                   </dd>
                   <dt className="text-muted-foreground">API key</dt>
-                  <dd className="m-0">The API key above (SABnzbd clients need one)</dd>
+                  <dd className="m-0">An API key from above, ideally one made for this app (SABnzbd clients need one)</dd>
                   <dt className="text-muted-foreground">Category</dt>
                   <dd className="m-0">
                     <span className="data">tv</span> in Sonarr, <span className="data">movies</span> in Radarr. Finished downloads land in a folder named after it.

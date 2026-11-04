@@ -1,0 +1,41 @@
+# Swarmy with Docker Compose.
+#
+#   mkdir swarmy && cd swarmy
+#   curl -fsSLO https://raw.githubusercontent.com/garethcheyne/swarmy/main/deploy/docker-compose.yml
+#   docker compose up -d
+#   docker compose logs swarmy | grep -A2 password     # first sign-in password
+#
+# Then open http://<this machine>:8080
+
+services:
+  swarmy:
+    image: ghcr.io/garethcheyne/swarmy:latest
+    container_name: swarmy
+    restart: unless-stopped
+    # Run as your own user so downloaded files belong to you (see `id -u` / `id -g`).
+    user: "1000:1000"
+    ports:
+      - "8080:8080"        # web UI and the qBittorrent-compatible API
+      - "6881:6881"        # BitTorrent (TCP)
+      - "6881:6881/udp"    # BitTorrent (uTP, DHT)
+    volumes:
+      - ./config:/config         # settings, statistics, resume data
+      - ./downloads:/downloads   # finished and in-progress downloads
+    environment:
+      TZ: Etc/UTC                # used by the alternative-speed schedule
+      # SWARMY_PASSWORD: change-me   # set or reset the web UI password
+
+# ---------------------------------------------------------------------------
+# Behind a VPN container (e.g. gluetun): route Swarmy through it instead of
+# publishing ports here. Publish 8080 and the forwarded port on gluetun.
+#
+#   swarmy:
+#     image: ghcr.io/garethcheyne/swarmy:latest
+#     network_mode: "service:gluetun"
+#     user: "1000:1000"
+#     volumes:
+#       - ./config:/config
+#       - ./downloads:/downloads
+#     environment:
+#       SWARMY_BIND_INTERFACE: tun0   # traffic stops if the VPN drops
+# ---------------------------------------------------------------------------

@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Swarmy name and logo concepts</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400&display=swap">
+<style>
+  :root { --ink:#0e1510; --deep:#0a100c; --panel:#152019; --line:#223127; --fg:#e4ebe1; --dim:#97a68f; --moss:#9ccc65; --down:#5f9e3a; --up:#3d93c7;
+          --paper:#f2f4ef; --pine:#1c2a1f; --pdim:#56634f; }
+  * { box-sizing:border-box }
+  body { margin:0; background:var(--ink); color:var(--fg); font:15px/1.5 "IBM Plex Sans Condensed","Arial Narrow",sans-serif }
+  .wrap { max-width:1240px; margin:0 auto; padding:40px max(16px,3vw) 64px; display:flex; flex-direction:column; gap:28px }
+  h1 { margin:0; font-size:34px; font-weight:700; letter-spacing:-.01em }
+  .lede { margin:0; color:var(--dim); max-width:70ch }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(360px,1fr)); gap:20px }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:14px; overflow:hidden; display:flex; flex-direction:column }
+  .card.pick { border-color:var(--moss); box-shadow:0 0 0 1px var(--moss) }
+  .stage { display:grid; grid-template-columns:1fr 1fr; }
+  .dark, .light { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; padding:26px 14px }
+  .dark { background:var(--deep) }
+  .light { background:var(--paper); color:var(--pine) }
+  .tile { width:96px; height:96px; border-radius:22px; background:var(--ink); display:grid; place-items:center; box-shadow:0 10px 24px -10px #000 }
+  .light .tile { background:var(--pine) }
+  .tile svg { width:64px; height:64px }
+  .word { display:flex; align-items:center; gap:8px; font-weight:700; font-size:24px; letter-spacing:-.01em }
+  .word svg { width:26px; height:26px }
+  .favs { display:flex; align-items:end; gap:10px }
+  .favs .f { border-radius:4px; background:var(--ink); display:grid; place-items:center }
+  .light .favs .f { background:var(--pine) }
+  .meta { padding:16px 18px 18px; display:flex; flex-direction:column; gap:6px; border-top:1px solid var(--line) }
+  .meta h2 { margin:0; font-size:20px; display:flex; align-items:center; gap:8px }
+  .badge { font-size:11px; font-weight:600; color:var(--ink); background:var(--moss); border-radius:999px; padding:1px 8px }
+  .meta p { margin:0; color:var(--dim); font-size:14px }
+  .meta .use { font-family:"IBM Plex Mono",monospace; font-size:12px; color:var(--fg) }
+  .note { color:var(--dim); font-size:13px; border-top:1px solid var(--line); padding-top:14px; max-width:80ch }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Name and logo concepts</h1>
+  <p class="lede">Six names, each with a mark drawn for the Control Room and Forest look: the app icon, favicons at 16 and 32 pixels, and the wordmark, on dark and light. None of them clash with an existing torrent project on GitHub.</p>
+  <div class="grid" id="grid"></div>
+  <p class="note">These are first-pass marks to compare directions, not finished logos. Once you pick a name I'll refine its mark, then rename the app, repo, binary, Docker image and install commands to match.</p>
+</div>
+
+<!-- Marks are 64x64, drawn with currentColor (primary) and --accent (secondary). -->
+<template id="mark-tributary">
+  <svg viewBox="0 0 64 64" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <!-- three streams converge into one, ending in a download arrow -->
+    <path d="M12 8c0 14 8 20 20 26" stroke="var(--accent)" stroke-width="5"/>
+    <path d="M52 8c0 14-8 20-20 26" stroke="var(--accent)" stroke-width="5"/>
+    <path d="M32 6v28" stroke="currentColor" stroke-width="5"/>
+    <path d="M32 34v20" stroke="currentColor" stroke-width="8"/>
+    <path d="M21 45l11 11 11-11" stroke="currentColor" stroke-width="6"/>
+  </svg>
+</template>
+
+<template id="mark-mycel">
+  <svg viewBox="0 0 64 64" fill="none" stroke-linecap="round">
+    <!-- a central node linked to its peers by branching hyphae -->
+    <path d="M32 32C24 24 22 16 14 12M32 32c8-8 12-14 20-17M32 32c-9 4-15 10-20 18M32 32c8 5 12 12 20 17M32 32c0 10 2 16 0 24" stroke="var(--accent)" stroke-width="3.5"/>
+    <circle cx="14" cy="12" r="5" fill="currentColor"/>
+    <circle cx="52" cy="15" r="5" fill="currentColor"/>
+    <circle cx="12" cy="50" r="5" fill="currentColor"/>
+    <circle cx="52" cy="49" r="5" fill="currentColor"/>
+    <circle cx="32" cy="56" r="4" fill="currentColor"/>
+    <circle cx="32" cy="32" r="8.5" fill="currentColor"/>
+  </svg>
+</template>
+
+<template id="mark-seedbank">
+  <svg viewBox="0 0 64 64" fill="none" stroke-linejoin="round" stroke-linecap="round">
+    <!-- a seed held safe in a hexagonal vault -->
+    <path d="M32 4 56 18v28L32 60 8 46V18Z" stroke="currentColor" stroke-width="5"/>
+    <path d="M32 18c9 7 9 19 0 28-9-9-9-21 0-28Z" fill="var(--accent)"/>
+    <path d="M32 26v16" stroke="var(--ink-on-accent)" stroke-width="2.5"/>
+  </svg>
+</template>
+
+<template id="mark-shoal">
+  <svg viewBox="0 0 64 64" fill="currentColor">
+    <!-- small fish swimming as one, forming a larger arrow -->
+    <g>
+      <path d="M8 14l9 5-9 5 2-5Z"/>
+      <path d="M8 40l9 5-9 5 2-5Z"/>
+      <path d="M20 22l9 5-9 5 2-5Z" fill="var(--accent)"/>
+      <path d="M20 32l9 5-9 5 2-5Z" fill="var(--accent)"/>
+      <path d="M33 27l9 5-9 5 2-5Z"/>
+      <path d="M8 27l9 5-9 5 2-5Z" fill="var(--accent)"/>
+      <path d="M44 22l14 10-14 10 3-10Z"/>
+    </g>
+  </svg>
+</template>
+
+<template id="mark-thicket">
+  <svg viewBox="0 0 64 64" fill="none" stroke-linecap="round">
+    <!-- stems of different heights: a thicket, and a small bar chart -->
+    <path d="M12 56V30M24 56V14M36 56V24M48 56V8" stroke="currentColor" stroke-width="6"/>
+    <path d="M12 38l-6-5M24 26l7-6M36 34l-7-5M48 20l7-6M24 42l-7-5M48 38l7-5" stroke="var(--accent)" stroke-width="3.5"/>
+    <path d="M6 58h52" stroke="currentColor" stroke-width="3" opacity=".5"/>
+  </svg>
+</template>
+
+<template id="mark-seedling">
+  <svg viewBox="0 0 64 64" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <!-- two leaves rising from a download arrow -->
+    <path d="M32 58V26" stroke="currentColor" stroke-width="5"/>
+    <path d="M32 30C32 18 22 10 9 10c0 13 9 20 23 20Z" fill="var(--accent)"/>
+    <path d="M32 26c0-10 8-17 19-17 0 11-8 17-19 17Z" fill="currentColor"/>
+    <path d="M22 48l10 10 10-10" stroke="currentColor" stroke-width="5"/>
+  </svg>
+</template>
+
+<script>
+  const NAMES = [
+    { id: "tributary", name: "Tributary", pick: true, meaning: "A torrent is a rushing stream; tributaries are the small streams that join to make a river. Many peers' pieces become one file.", feel: "Calm, precise, a little technical. The mark is a download arrow.", cli: "tributary, tributary.local, ghcr.io/…/tributary" },
+    { id: "mycel", name: "Mycel", meaning: "Short for mycelium: the underground network that connects a forest and lets trees share. Peer-to-peer in nature, and a fit for Forest.", feel: "Organic and clever. Four letters, easy to type.", cli: "mycel, mycel.local, ghcr.io/…/mycel" },
+    { id: "seedbank", name: "Seedbank", meaning: "Where seeds are kept safe. Seeding is the BitTorrent term, and the bank is your media library.", feel: "Trustworthy and solid. Says what it does.", cli: "seedbank, seedbank.local, ghcr.io/…/seedbank" },
+    { id: "shoal", name: "Shoal", meaning: "A school of fish moving as one: a swarm, in water. The small fish form one big arrow.", feel: "Short, punchy, distinctive.", cli: "shoal, shoal.local, ghcr.io/…/shoal" },
+    { id: "thicket", name: "Thicket", meaning: "Dense, tangled growth, like the dense Control Room UI. The mark doubles as a bar chart of your stats.", feel: "Dense and data-forward.", cli: "thicket, thicket.local, ghcr.io/…/thicket" },
+    { id: "seedling", name: "Seedling", meaning: "A young plant from a seed, rising out of a download arrow.", feel: "Friendly and approachable. The softest of the six.", cli: "seedling, seedling.local, ghcr.io/…/seedling" },
+  ]
+
+  const mark = (id, primary, accent, inkOnAccent, size) => {
+    const t = document.getElementById(`mark-${id}`).content.firstElementChild.cloneNode(true)
+    t.style.color = primary
+    t.style.setProperty("--accent", accent)
+    t.style.setProperty("--ink-on-accent", inkOnAccent)
+    if (size) { t.style.width = size + "px"; t.style.height = size + "px" }
+    t.setAttribute("aria-hidden", "true")
+    return t.outerHTML
+  }
+
+  const side = (n, cls, primary, accent, inkOnAccent, wordColor) => `
+    <div class="${cls}">
+      <div class="tile">${mark(n.id, primary, accent, inkOnAccent)}</div>
+      <div class="favs">
+        <span class="f" style="width:32px;height:32px">${mark(n.id, primary, accent, inkOnAccent, 22)}</span>
+        <span class="f" style="width:16px;height:16px;border-radius:3px">${mark(n.id, primary, accent, inkOnAccent, 12)}</span>
+      </div>
+      <div class="word" style="color:${wordColor}">${mark(n.id, wordColor === "#1c2a1f" ? "#1c2a1f" : "#9ccc65", wordColor === "#1c2a1f" ? "#4f8f2f" : "#5f9e3a", "#0e1510")}${n.name}</div>
+    </div>`
+
+  document.getElementById("grid").innerHTML = NAMES.map((n) => `
+    <article class="card${n.pick ? " pick" : ""}">
+      <div class="stage">
+        ${side(n, "dark", "#9ccc65", "#5f9e3a", "#0e1510", "#e4ebe1")}
+        ${side(n, "light", "#9ccc65", "#5f9e3a", "#0e1510", "#1c2a1f")}
+      </div>
+      <div class="meta">
+        <h2>${n.name}${n.pick ? '<span class="badge">My pick</span>' : ""}</h2>
+        <p>${n.meaning}</p>
+        <p>${n.feel}</p>
+        <p class="use">${n.cli}</p>
+      </div>
+    </article>`).join("")
+</script>
+</body>
+</html>

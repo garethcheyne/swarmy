@@ -84,20 +84,36 @@ pub async fn apply(state: &Shared, torrents: &[TorrentView]) -> bool {
 
 async fn seeding_limits(state: &Shared, s: &Settings, torrents: &[TorrentView]) -> anyhow::Result<()> {
     let limits = &s.seeding;
-    if limits.ratio_limit.is_none() && limits.time_limit.is_none() {
-        return Ok(());
-    }
     let now = now_unix();
+    // Per-torrent limits (set by Sonarr/Radarr per indexer) override the
+    // global ones: -2 = use global, -1 = no limit, >= 0 = this limit.
+    let pick_f = |own: f64, global: Option<f64>| match own {
+        x if x >= 0.0 => Some(x),
+        x if x == -1.0 => None,
+        _ => global,
+    };
+    let pick_m = |own: i64, global: Option<u32>| match own {
+        x if x >= 0 => Some(x),
+        -1 => None,
+        _ => global.map(i64::from),
+    };
     for t in torrents.iter().filter(|t| t.state == TorrentState::Seeding) {
-        let ratio_hit = limits.ratio_limit.is_some_and(|r| t.ratio >= r);
-        let time_hit = limits
-            .time_limit
+        let ratio_hit = pick_f(t.ratio_limit, limits.ratio_limit).is_some_and(|r| t.ratio + 0.001 >= r);
+        let time_hit = pick_m(t.seeding_time_limit, limits.time_limit)
             .zip(t.completed_on)
-            .is_some_and(|(mins, done)| now - done >= i64::from(mins) * 60);
-        if !(ratio_hit || time_hit) {
+            .is_some_and(|(mins, done)| now - done >= mins * 60);
+        let idle_hit = pick_m(t.inactive_seeding_time_limit, limits.inactive_time_limit)
+            .is_some_and(|mins| now - t.last_activity >= mins * 60);
+        if !(ratio_hit || time_hit || idle_hit) {
             continue;
         }
-        let why = if ratio_hit { format!("ratio {:.2}", t.ratio) } else { "seeding time".into() };
+        let why = if ratio_hit {
+            format!("ratio {:.2}", t.ratio)
+        } else if time_hit {
+            "seeding time".into()
+        } else {
+            "inactive seeding time".into()
+        };
         match limits.action {
             SeedAction::Pause => {
                 tracing::info!("seeding limit reached ({why}), pausing {}", t.name);
@@ -123,11 +139,13 @@ async fn queue(state: &Shared, s: &Settings, torrents: &[TorrentView]) -> anyhow
     let running = |t: &&TorrentView| matches!(t.state, TorrentState::Downloading | TorrentState::Initializing | TorrentState::Seeding);
     let is_dl = |t: &TorrentView| t.progress < 1.0;
 
-    // Oldest first: they keep their slots, newer ones wait.
-    let mut active: Vec<&TorrentView> = torrents.iter().filter(running).collect();
-    active.sort_by_key(|t| t.added_on);
+    // Queue order: explicit priority (topPrio etc.), then oldest first.
+    // Force-started torrents ignore the limits and take no slot.
+    let order = |t: &&TorrentView| (if t.priority == 0 { t.added_on } else { t.priority }, t.added_on);
+    let mut active: Vec<&TorrentView> = torrents.iter().filter(running).filter(|t| !t.force_start).collect();
+    active.sort_by_key(order);
     let mut queued: Vec<&TorrentView> = torrents.iter().filter(|t| t.queued).collect();
-    queued.sort_by_key(|t| t.added_on);
+    queued.sort_by_key(order);
 
     let (mut dl, mut up, mut total) = (0u32, 0u32, 0u32);
     let mut to_queue = Vec::new();

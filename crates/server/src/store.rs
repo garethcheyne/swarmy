@@ -26,7 +26,7 @@ pub struct Category {
     pub save_path: String,
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TorrentMeta {
     #[serde(default)]
     pub category: String,
@@ -40,6 +40,49 @@ pub struct TorrentMeta {
     /// Paused by the queue (not by the user); resumed automatically when a slot frees up.
     #[serde(default)]
     pub queued: bool,
+    /// The save path the torrent was added with (its content may be in a subfolder).
+    #[serde(default)]
+    pub save_path: String,
+    /// qBittorrent share limits: -2 = use the global setting, -1 = no limit.
+    #[serde(default = "use_global_f")]
+    pub ratio_limit: f64,
+    /// Minutes; -2 = global, -1 = no limit.
+    #[serde(default = "use_global")]
+    pub seeding_time_limit: i64,
+    /// Minutes without activity; -2 = global, -1 = no limit.
+    #[serde(default = "use_global")]
+    pub inactive_seeding_time_limit: i64,
+    /// Ignore queue limits for this torrent.
+    #[serde(default)]
+    pub force_start: bool,
+    /// Queue order; lower starts first. 0 = by date added.
+    #[serde(default)]
+    pub priority: i64,
+}
+
+fn use_global() -> i64 {
+    -2
+}
+fn use_global_f() -> f64 {
+    -2.0
+}
+
+impl Default for TorrentMeta {
+    fn default() -> Self {
+        Self {
+            category: String::new(),
+            tags: Default::default(),
+            added_on: 0,
+            completed_on: None,
+            queued: false,
+            save_path: String::new(),
+            ratio_limit: -2.0,
+            seeding_time_limit: -2,
+            inactive_seeding_time_limit: -2,
+            force_start: false,
+            priority: 0,
+        }
+    }
 }
 
 /// Everything on the Settings page. Missing fields take defaults, so older
@@ -194,6 +237,8 @@ pub struct SeedingSettings {
     pub ratio_limit: Option<f64>,
     /// Minutes; None = no time limit.
     pub time_limit: Option<u32>,
+    /// Minutes without any upload or download; None = no limit.
+    pub inactive_time_limit: Option<u32>,
     pub action: SeedAction,
 }
 
@@ -202,6 +247,7 @@ impl Default for SeedingSettings {
         Self {
             ratio_limit: None,
             time_limit: None,
+            inactive_time_limit: None,
             action: SeedAction::Pause,
         }
     }
@@ -216,6 +262,10 @@ pub struct WebUiSettings {
     pub lockout_minutes: u32,
     /// Addresses (or IPv4 CIDRs) allowed to set X-Forwarded-For / -Proto.
     pub trusted_proxies: Vec<String>,
+    /// Serve the qBittorrent-compatible API at /api/v2 (Sonarr, Radarr, Prowlarr…).
+    pub qbit_api: bool,
+    /// SHA-256 (hex) of the API key; empty = no key. The key itself is shown once.
+    pub api_key_hash: String,
 }
 
 impl Default for WebUiSettings {
@@ -225,6 +275,8 @@ impl Default for WebUiSettings {
             max_attempts: 5,
             lockout_minutes: 15,
             trusted_proxies: vec!["127.0.0.1".into(), "::1".into()],
+            qbit_api: true,
+            api_key_hash: String::new(),
         }
     }
 }

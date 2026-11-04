@@ -47,6 +47,9 @@ pub struct TorrentStatus {
     pub peers: u32,
     pub seeds: u32,
     pub output_folder: PathBuf,
+    /// The torrent's content on disk: its folder, or the file for a
+    /// single-file torrent (qBittorrent's `content_path`).
+    pub content_path: PathBuf,
     pub error: Option<String>,
 }
 
@@ -118,10 +121,44 @@ pub enum AddSource {
     TorrentFile(Vec<u8>),
 }
 
+/// qBittorrent's content layouts.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum ContentLayout {
+    /// Multi-file torrents get a folder named after the torrent; single files don't.
+    #[default]
+    Original,
+    /// Always create a folder, even for a single file.
+    Subfolder,
+    /// Never create a folder.
+    NoSubfolder,
+}
+
+impl ContentLayout {
+    /// Where the torrent's files go, given the save path and its file count.
+    pub fn folder(self, save: &std::path::Path, name: &str, files: usize) -> PathBuf {
+        let safe = !name.is_empty()
+            && std::path::Path::new(name)
+                .components()
+                .all(|c| matches!(c, std::path::Component::Normal(_)));
+        match (self, files > 1, safe) {
+            (_, _, false) | (Self::NoSubfolder, _, _) | (Self::Original, false, _) => save.to_path_buf(),
+            (Self::Original, true, _) | (Self::Subfolder, true, _) => save.join(name),
+            (Self::Subfolder, false, _) => {
+                let stem = std::path::Path::new(name)
+                    .file_stem()
+                    .map(|s| s.to_string_lossy().into_owned())
+                    .unwrap_or_else(|| name.to_owned());
+                save.join(stem)
+            }
+        }
+    }
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct AddOptions {
     pub save_path: Option<PathBuf>,
     pub paused: bool,
+    pub layout: ContentLayout,
 }
 
 #[derive(Debug, Clone)]

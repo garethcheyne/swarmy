@@ -12,7 +12,7 @@ use axum::{
 };
 use axum_extra::extract::cookie::CookieJar;
 use std::net::SocketAddr;
-use swarmy_engine::{AddOptions, AddSource, FileEntry, PieceMap};
+use swarmy_engine::{AddOptions, AddSource, ContentLayout, FileEntry, PieceMap};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -29,6 +29,7 @@ pub fn router(state: Shared) -> Router<Shared> {
         .route("/auth/logout-others", post(logout_others))
         .route("/settings", get(get_settings).put(put_settings))
         .route("/speed/alt", post(set_alt_speed))
+        .route("/apikey", post(create_api_key).delete(delete_api_key))
         .route("/tags", get(list_tags))
         .route("/tags/{name}", put(put_tag).delete(delete_tag))
         .route("/torrents", get(list_torrents).post(add_torrents))
@@ -205,8 +206,11 @@ async fn logout_others(State(state): State<Shared>, jar: CookieJar) -> ApiResult
 // ---------- settings ----------
 
 async fn get_settings(State(state): State<Shared>) -> Json<serde_json::Value> {
-    let (settings, sessions) = state.store.read(|d| (d.settings.clone(), d.sessions.len()));
+    let (mut settings, sessions) = state.store.read(|d| (d.settings.clone(), d.sessions.len()));
     let restart_needed = connection_changed(&state, &settings);
+    let api_key_set = !settings.webui.api_key_hash.is_empty();
+    // The browser never needs the key's hash.
+    settings.webui.api_key_hash.clear();
     Json(serde_json::json!({
         "settings": settings,
         "locked": state.locked,
@@ -214,6 +218,9 @@ async fn get_settings(State(state): State<Shared>) -> Json<serde_json::Value> {
         "sessions": sessions,
         "effective_download_dir": state.download_dir(),
         "data_dir": state.data_dir,
+        "api_key_set": api_key_set,
+        "qbit_version": crate::qbit::APP_VERSION,
+        "qbit_webapi": crate::qbit::WEBAPI_VERSION,
     }))
 }
 
@@ -261,7 +268,11 @@ async fn put_settings(
         return Err(ApiError::bad_request("Keep people signed in for between 1 and 365 days."));
     }
     let queue_turned_off = !new.queue.enabled && state.store.read(|d| d.settings.queue.enabled);
-    state.store.update(|d| d.settings = new.clone())?;
+    state.store.update(|d| {
+        let key = std::mem::take(&mut d.settings.webui.api_key_hash);
+        d.settings = new.clone();
+        d.settings.webui.api_key_hash = key;
+    })?;
     // Turning the queue off releases everything it was holding.
     if queue_turned_off {
         let held: Vec<String> = state.store.read(|d| {
@@ -288,6 +299,22 @@ struct AltReq {
 
 async fn set_alt_speed(State(state): State<Shared>, Json(req): Json<AltReq>) -> ApiResult<StatusCode> {
     state.store.update(|d| d.settings.speed.alt_enabled = req.enabled)?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+// ---------- API key (qBittorrent-compatible API) ----------
+
+/// Make a new key, store only its hash, and return the key this once.
+async fn create_api_key(State(state): State<Shared>) -> ApiResult<Json<serde_json::Value>> {
+    let key: String = rand::random::<[u8; 24]>().iter().map(|b| format!("{b:02x}")).collect();
+    let key = format!("swarmy_{key}");
+    let hash = crate::qbit::api_key_hash(&key);
+    state.store.update(|d| d.settings.webui.api_key_hash = hash)?;
+    Ok(Json(serde_json::json!({ "api_key": key })))
+}
+
+async fn delete_api_key(State(state): State<Shared>) -> ApiResult<StatusCode> {
+    state.store.update(|d| d.settings.webui.api_key_hash.clear())?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -348,9 +375,51 @@ pub struct AddRequest {
     pub save_path: Option<String>,
     /// None = follow Settings > Downloads > add paused.
     pub paused: Option<bool>,
+    pub layout: ContentLayout,
+    /// qBittorrent share limits (-2 global, -1 none); None = not given.
+    pub ratio_limit: Option<f64>,
+    pub seeding_time_limit: Option<i64>,
+    pub inactive_seeding_time_limit: Option<i64>,
 }
 
 impl AddRequest {
+    /// Apply one qBittorrent-style form field (from multipart or urlencoded).
+    pub fn field(&mut self, name: &str, text: &str) {
+        let num = |t: &str| t.trim().parse::<f64>().ok();
+        match name {
+            "urls" => self.urls.extend(
+                text.split(['\n', '\r'])
+                    .map(str::trim)
+                    .filter(|l| !l.is_empty())
+                    .map(String::from),
+            ),
+            "category" => self.category = text.trim().to_owned(),
+            "tags" => self.tags.extend(
+                text.split(',')
+                    .map(str::trim)
+                    .filter(|t| !t.is_empty())
+                    .map(String::from),
+            ),
+            "savepath" => self.save_path = Some(text.to_owned()),
+            "paused" | "stopped" => self.paused = Some(text.trim() == "true"),
+            "contentLayout" => {
+                self.layout = match text.trim() {
+                    "Subfolder" => ContentLayout::Subfolder,
+                    "NoSubfolder" => ContentLayout::NoSubfolder,
+                    _ => ContentLayout::Original,
+                }
+            }
+            // Older qBittorrent: root_folder=true/false.
+            "root_folder" => {
+                self.layout = if text.trim() == "true" { ContentLayout::Subfolder } else { ContentLayout::NoSubfolder }
+            }
+            "ratioLimit" => self.ratio_limit = num(text),
+            "seedingTimeLimit" => self.seeding_time_limit = num(text).map(|v| v as i64),
+            "inactiveSeedingTimeLimit" => self.inactive_seeding_time_limit = num(text).map(|v| v as i64),
+            _ => {}
+        }
+    }
+
     /// Parse qBittorrent-style multipart fields, so the same parser serves
     /// both our UI and `/api/v2/torrents/add`.
     pub async fn from_multipart(mut mp: Multipart) -> ApiResult<Self> {
@@ -373,31 +442,19 @@ impl AddRequest {
                 .text()
                 .await
                 .map_err(|e| ApiError::bad_request(e.to_string()))?;
-            match name.as_str() {
-                "urls" => req.urls.extend(
-                    text.lines()
-                        .map(str::trim)
-                        .filter(|l| !l.is_empty())
-                        .map(String::from),
-                ),
-                "category" => req.category = text.trim().to_owned(),
-                "tags" => req.tags.extend(
-                    text.split(',')
-                        .map(str::trim)
-                        .filter(|t| !t.is_empty())
-                        .map(String::from),
-                ),
-                "savepath" => req.save_path = Some(text),
-                "paused" | "stopped" => req.paused = Some(text.trim() == "true"),
-                _ => {}
-            }
+            req.field(&name, &text);
         }
         Ok(req)
     }
 }
 
-/// Add every URL/file in the request. Returns the info-hashes added.
-pub async fn add_all(state: &Shared, req: AddRequest) -> ApiResult<Vec<String>> {
+pub struct Added {
+    pub hash: String,
+    pub already_existed: bool,
+}
+
+/// Add every URL/file in the request.
+pub async fn add_all(state: &Shared, req: AddRequest) -> ApiResult<Vec<Added>> {
     if req.urls.is_empty() && req.files.is_empty() {
         return Err(ApiError::bad_request("no torrents or URLs given"));
     }
@@ -406,11 +463,13 @@ pub async fn add_all(state: &Shared, req: AddRequest) -> ApiResult<Vec<String>> 
         .paused
         .unwrap_or_else(|| state.store.read(|d| d.settings.downloads.add_paused));
 
-    let sources = req
+    let sources: Vec<AddSource> = req
         .urls
-        .into_iter()
+        .iter()
+        .cloned()
         .map(AddSource::Url)
-        .chain(req.files.into_iter().map(AddSource::TorrentFile));
+        .chain(req.files.iter().cloned().map(AddSource::TorrentFile))
+        .collect();
 
     let mut added = Vec::new();
     for source in sources {
@@ -421,6 +480,7 @@ pub async fn add_all(state: &Shared, req: AddRequest) -> ApiResult<Vec<String>> 
                 AddOptions {
                     save_path: Some(save_path.clone()),
                     paused,
+                    layout: req.layout,
                 },
             )
             .await?;
@@ -446,20 +506,26 @@ pub async fn add_all(state: &Shared, req: AddRequest) -> ApiResult<Vec<String>> 
                         category: req.category.clone(),
                         tags: req.tags.iter().cloned().collect(),
                         added_on: now_unix(),
-                        completed_on: None,
-                        queued: false,
+                        save_path: save_path.to_string_lossy().into_owned(),
+                        ratio_limit: req.ratio_limit.unwrap_or(-2.0),
+                        seeding_time_limit: req.seeding_time_limit.unwrap_or(-2),
+                        inactive_seeding_time_limit: req.inactive_seeding_time_limit.unwrap_or(-2),
+                        ..Default::default()
                     },
                 );
             })?;
         }
-        added.push(outcome.info_hash);
+        added.push(Added {
+            hash: outcome.info_hash,
+            already_existed: outcome.already_existed,
+        });
     }
     Ok(added)
 }
 
 async fn add_torrents(State(state): State<Shared>, mp: Multipart) -> ApiResult<Json<Vec<String>>> {
     let req = AddRequest::from_multipart(mp).await?;
-    Ok(Json(add_all(&state, req).await?))
+    Ok(Json(add_all(&state, req).await?.into_iter().map(|a| a.hash).collect()))
 }
 
 #[derive(Deserialize)]

@@ -34,6 +34,8 @@ pub struct AppState {
     pub push: Arc<Push>,
     /// Torrents currently in the error state, so we notify once per failure.
     pub errored: Mutex<HashSet<String>>,
+    /// Unix time each torrent last moved data (qBittorrent's `last_activity`).
+    pub activity: Mutex<std::collections::HashMap<String, i64>>,
     pub demo: bool,
     /// Latest snapshot, refreshed every second by [`run_ticker`].
     pub snapshot: watch::Receiver<Arc<Snapshot>>,
@@ -64,6 +66,16 @@ pub struct TorrentView {
     /// Paused by the queue, waiting for a free slot.
     pub queued: bool,
     pub error: Option<String>,
+    /// Content on disk: the torrent's folder, or the file itself.
+    pub content_path: String,
+    /// Folder holding all the content, if the torrent has one (else empty).
+    pub root_path: String,
+    pub ratio_limit: f64,
+    pub seeding_time_limit: i64,
+    pub inactive_seeding_time_limit: i64,
+    pub force_start: bool,
+    pub priority: i64,
+    pub last_activity: i64,
 }
 
 #[derive(Debug, Clone, Default, Serialize)]
@@ -88,7 +100,15 @@ pub struct Snapshot {
 }
 
 impl TorrentView {
-    pub fn new(s: TorrentStatus, meta: &TorrentMeta) -> Self {
+    pub fn new(s: TorrentStatus, meta: &TorrentMeta, last_activity: i64) -> Self {
+        let save_path = if meta.save_path.is_empty() {
+            s.output_folder.to_string_lossy().into_owned()
+        } else {
+            meta.save_path.clone()
+        };
+        let output = s.output_folder.to_string_lossy().into_owned();
+        let root_path = if output != save_path { output } else { String::new() };
+        let content_path = s.content_path.to_string_lossy().into_owned();
         let ratio = if s.downloaded_bytes > 0 {
             s.uploaded_bytes as f64 / s.downloaded_bytes as f64
         } else {
@@ -108,7 +128,15 @@ impl TorrentView {
             eta: s.eta_secs,
             peers: s.peers,
             seeds: s.seeds,
-            save_path: s.output_folder.to_string_lossy().into_owned(),
+            save_path,
+            content_path,
+            root_path,
+            ratio_limit: meta.ratio_limit,
+            seeding_time_limit: meta.seeding_time_limit,
+            inactive_seeding_time_limit: meta.inactive_seeding_time_limit,
+            force_start: meta.force_start,
+            priority: meta.priority,
+            last_activity,
             category: meta.category.clone(),
             tags: meta.tags.iter().cloned().collect(),
             added_on: meta.added_on,
@@ -183,12 +211,26 @@ impl AppState {
             self.notify("errored", &format!("Problem with {name}"), why, &s.info_hash);
         }
 
+        let activity = {
+            let mut a = self.activity.lock().unwrap();
+            for s in &statuses {
+                if s.download_speed > 0 || s.upload_speed > 0 {
+                    a.insert(s.info_hash.clone(), now);
+                }
+            }
+            a.retain(|h, _| statuses.iter().any(|s| &s.info_hash == h));
+            a.clone()
+        };
         let torrents: Vec<TorrentView> = self.store.read(|d| {
             statuses
                 .into_iter()
                 .map(|s| {
                     let meta = d.torrents.get(&s.info_hash).cloned().unwrap_or_default();
-                    TorrentView::new(s, &meta)
+                    let last = activity
+                        .get(&s.info_hash)
+                        .copied()
+                        .unwrap_or_else(|| meta.completed_on.unwrap_or(meta.added_on));
+                    TorrentView::new(s, &meta, last)
                 })
                 .collect()
         });

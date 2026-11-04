@@ -10,3 +10,4 @@ librqbit = "9.1.0"
 rand = "0.10.3"
 serde = { version = "1.0.229", features = ["derive"] }
 tokio = { version = "1.54.1", features = ["full"] }
+tracing = "0.1.44"

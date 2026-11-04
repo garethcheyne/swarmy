@@ -8,6 +8,7 @@ import {
   LockIcon,
   NetworkIcon,
   PaletteIcon,
+  PlugIcon,
   PlusIcon,
   RotateCwIcon,
   ShieldIcon,
@@ -21,6 +22,7 @@ import { api, UnauthorizedError, type Category, type ServerInfo, type Settings, 
 import { usePoll } from "@/lib/use-poll"
 import { cn } from "@/lib/utils"
 import { AppearancePanel } from "@/components/appearance-dialog"
+import { IntegrationsSection } from "@/components/integrations-section"
 import { NotificationsPanel } from "@/components/notifications-dialog"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
@@ -52,6 +54,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 
 const SECTIONS = [
   { id: "downloads", label: "Downloads", icon: DownloadIcon },
+  { id: "integrations", label: "Sonarr and Radarr", icon: PlugIcon },
   { id: "connection", label: "Connection", icon: NetworkIcon },
   { id: "speed", label: "Speed", icon: GaugeIcon },
   { id: "queue", label: "Queue and seeding", icon: ListOrderedIcon },
@@ -182,6 +185,11 @@ export function SettingsPage({ onSignedOut }: { onSignedOut: () => void }) {
   const [server, setServer] = useState<SettingsResponse | null>(null)
   const [draft, setDraft] = useState<Settings | null>(null)
   const [saving, setSaving] = useState(false)
+  const [username, setUsername] = useState("")
+
+  useEffect(() => {
+    api.me().then((m) => setUsername(m.username ?? "")).catch(() => {})
+  }, [])
 
   useEffect(() => {
     api
@@ -282,6 +290,16 @@ export function SettingsPage({ onSignedOut }: { onSignedOut: () => void }) {
                     />
                   </FieldGroup>
                 </Section>
+              )}
+
+              {section === "integrations" && (
+                <IntegrationsSection
+                  draft={draft}
+                  set={set}
+                  server={server}
+                  username={username}
+                  onKeyChanged={(v) => setServer((s) => (s ? { ...s, api_key_set: v } : s))}
+                />
               )}
 
               {section === "connection" && (
@@ -471,6 +489,15 @@ export function SettingsPage({ onSignedOut }: { onSignedOut: () => void }) {
                       />
                       <FieldLabel htmlFor="time-on" className="w-44">Stop after seeding for</FieldLabel>
                       <NumberInput id="seedtime" unit="min" className="w-36" disabled={draft.seeding.time_limit === null} value={draft.seeding.time_limit ?? 1440} onChange={(v) => set("seeding", { time_limit: Math.max(1, Math.round(v)) })} />
+                    </Field>
+                    <Field orientation="horizontal">
+                      <Checkbox
+                        id="idle-on"
+                        checked={draft.seeding.inactive_time_limit !== null}
+                        onCheckedChange={(on) => set("seeding", { inactive_time_limit: on ? 720 : null })}
+                      />
+                      <FieldLabel htmlFor="idle-on" className="w-44">Stop after no activity for</FieldLabel>
+                      <NumberInput id="idletime" unit="min" className="w-36" disabled={draft.seeding.inactive_time_limit === null} value={draft.seeding.inactive_time_limit ?? 720} onChange={(v) => set("seeding", { inactive_time_limit: Math.max(1, Math.round(v)) })} />
                     </Field>
                     <Field>
                       <FieldLabel>Then</FieldLabel>

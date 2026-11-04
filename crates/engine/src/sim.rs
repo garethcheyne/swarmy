@@ -89,6 +89,10 @@ impl SimTorrent {
             peers: self.peers,
             seeds: self.seeds,
             output_folder: self.output_folder.clone(),
+            content_path: match self.files.as_slice() {
+                [(only, _)] => self.output_folder.join(only),
+                _ => self.output_folder.join(&self.name),
+            },
             error: self.error.clone(),
         }
     }

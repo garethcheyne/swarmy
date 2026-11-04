@@ -1,8 +1,11 @@
+#![recursion_limit = "256"]
+
 mod api;
 mod auth;
 mod config;
 mod policy;
 mod push;
+mod qbit;
 mod state;
 mod stats;
 mod store;
@@ -115,6 +118,7 @@ async fn main() -> anyhow::Result<()> {
         stats: stats.clone(),
         push,
         errored: Default::default(),
+        activity: Default::default(),
         demo: cfg.demo,
         snapshot: snap_rx,
     });
@@ -122,6 +126,8 @@ async fn main() -> anyhow::Result<()> {
     tokio::spawn(stats::run_system_sampler(stats));
 
     let app = Router::new()
+        // qBittorrent-compatible API for Sonarr, Radarr, Prowlarr and friends.
+        .nest("/api/v2", qbit::router(state.clone()))
         .nest("/api", api::router(state.clone()))
         .fallback(web::serve)
         .layer(CompressionLayer::new())
@@ -176,7 +182,7 @@ fn seed_demo(
                     completed_on: finished
                         .contains(&s.info_hash)
                         .then(|| now - s.added_ago + (s.added_ago / 3).min(6 * 3600)),
-                    queued: false,
+                    ..Default::default()
                 });
         }
     })?;

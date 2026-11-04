@@ -155,8 +155,20 @@ export interface Settings {
     schedule: { enabled: boolean; from: number; to: number; days: number[] }
   }
   queue: { enabled: boolean; max_downloads: number; max_uploads: number; max_active: number }
-  seeding: { ratio_limit: number | null; time_limit: number | null; action: SeedAction }
-  webui: { session_days: number; max_attempts: number; lockout_minutes: number; trusted_proxies: string[] }
+  seeding: {
+    ratio_limit: number | null
+    time_limit: number | null
+    inactive_time_limit: number | null
+    action: SeedAction
+  }
+  webui: {
+    session_days: number
+    max_attempts: number
+    lockout_minutes: number
+    trusted_proxies: string[]
+    qbit_api: boolean
+    api_key_hash: string
+  }
 }
 
 export interface SettingsResponse {
@@ -166,6 +178,9 @@ export interface SettingsResponse {
   sessions: number
   effective_download_dir: string
   data_dir: string
+  api_key_set: boolean
+  qbit_version: string
+  qbit_webapi: string
 }
 
 export interface PieceMap {
@@ -253,6 +268,8 @@ export const api = {
   deleteTag: (name: string) => request<void>(`/tags/${encodeURIComponent(name)}`, { method: "DELETE" }),
   changePassword: (body: { current_password: string; username?: string; new_password?: string }) =>
     request<{ signed_out: number }>("/auth/password", json(body)),
+  createApiKey: () => request<{ api_key: string }>("/apikey", { method: "POST" }),
+  deleteApiKey: () => request<void>("/apikey", { method: "DELETE" }),
   logoutOthers: () => request<{ signed_out: number }>("/auth/logout-others", { method: "POST" }),
   pieces: (hash: string, buckets = 216) =>
     request<PieceMap>(`/torrents/${hash}/pieces?buckets=${buckets}`),

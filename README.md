@@ -56,6 +56,18 @@ CPU/memory; the last 10 minutes stay in memory for live charts and per-minute
 aggregates go to `stats.db` (SQLite) forever. Torrent adds, completions and
 removals are logged as events. API: `/api/stats/{live,history,summary,events}`.
 
+## Sonarr, Radarr and Prowlarr
+
+Swarmy serves the qBittorrent Web API at `/api/v2` and reports itself as qBittorrent 5.1 (Web API 2.11.4).
+In Sonarr or Radarr add a **qBittorrent** download client pointing at Swarmy's host and port, with your
+Swarmy username and password, or an API key from **Settings → Sonarr and Radarr**. The layer was written
+against Sonarr's own qBittorrent client code: qBittorrent 5 state strings, `save_path` / `content_path` /
+`root_path`, per-torrent share limits (`ratioLimit`, `seedingTimeLimit`, `inactiveSeedingTimeLimit`),
+categories, tags, queue priority and force start. Magnet adds return immediately while metadata resolves.
+
+Not yet implemented: `sync/maindata` (used by third-party web UIs), trackers/peers detail, `setLocation`,
+file priorities.
+
 ## Development
 
 Run the daemon and the Vite dev server side by side; Vite proxies `/api`
@@ -69,7 +81,7 @@ cd web && pnpm dev                   # :5173 with hot reload
 ## Roadmap
 
 1. ✅ Daemon, engine adapter, persistence, auth, JSON API, live WebSocket updates, web UI
-2. ⏳ qBittorrent Web API v2 compatibility layer (`/api/v2/*`) so Sonarr/Radarr/Prowlarr can use Swarmy as a qBittorrent client
+2. ✅ qBittorrent Web API v2 compatibility layer (`/api/v2/*`) so Sonarr/Radarr/Prowlarr can use Swarmy as a qBittorrent client
 3. UI: settings page, speed limits, category management
    (✅ done early: Hive overview, statistics, demo mode)
 4. RSS rules, scheduler, Docker image

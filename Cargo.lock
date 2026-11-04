@@ -3653,6 +3653,7 @@ dependencies = [
  "chrono",
  "clap",
  "dirs",
+ "form_urlencoded",
  "futures",
  "hkdf",
  "mime_guess",
@@ -3682,6 +3683,7 @@ dependencies = [
  "rand 0.10.3",
  "serde",
  "tokio",
+ "tracing",
 ]
 
 [[package]]

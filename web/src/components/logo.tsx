@@ -1,13 +1,45 @@
-/** Swarmy mark: a honey cell with a smaller cell rising inside it. */
+/**
+ * The Swarmy mark: a ribbon of particles that grow as they arrive, like
+ * pieces landing. Same geometry as the app icons (64x64 box, 14 particles).
+ * Colours come from the theme, so it works in every palette.
+ */
+const PARTICLES = Array.from({ length: 14 }, (_, i) => {
+  const t = i / 13
+  return {
+    x: 32 + 17 * Math.sin(t * Math.PI * 2),
+    y: 8 + t * 48,
+    r: 1.8 + t * 3.9,
+    tail: t < 0.45,
+  }
+})
+
 export function Logo({ className }: { className?: string }) {
   return (
-    <svg viewBox="0 0 32 32" className={className} aria-hidden>
-      <path d="M16 1.5 28.6 8.75v14.5L16 30.5 3.4 23.25V8.75Z" fill="var(--sidebar-primary)" />
-      <path
-        d="M16 11.2 21.9 14.6v6.8L16 24.8l-5.9-3.4v-6.8Z"
-        fill="var(--sidebar)"
-        opacity="0.92"
-      />
+    <svg viewBox="0 0 64 64" className={className} aria-hidden>
+      {PARTICLES.map((p, i) => (
+        <circle
+          key={i}
+          cx={p.x.toFixed(2)}
+          cy={p.y.toFixed(2)}
+          r={p.r.toFixed(2)}
+          fill={
+            p.tail
+              ? "color-mix(in oklab, var(--sidebar-primary) 60%, var(--sidebar))"
+              : "var(--sidebar-primary)"
+          }
+        />
+      ))}
     </svg>
+  )
+}
+
+/** The mark on its app-icon tile, for the sign-in screen and empty states. */
+export function LogoTile({ className }: { className?: string }) {
+  return (
+    <span
+      className={`grid place-items-center rounded-[23%] border border-sidebar-border bg-linear-160 from-sidebar-accent to-sidebar ${className ?? ""}`}
+    >
+      <Logo className="size-[68%]" />
+    </span>
   )
 }

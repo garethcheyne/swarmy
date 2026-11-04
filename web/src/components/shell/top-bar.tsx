@@ -33,7 +33,7 @@ export function TopBar({ stats, demo, reconnecting, onOpenCommand, onOpenMenu, o
       </Button>
       <a href="#/" className="flex items-center gap-2 font-bold text-sidebar-accent-foreground">
         <Logo className="size-5" />
-        <span className="text-[15px]">Swarmy</span>
+        <span className="text-[16px] tracking-[-0.01em]">Swarmy</span>
       </a>
       {demo && <Badge className="bg-sidebar-primary text-sidebar-primary-foreground">Demo</Badge>}
 

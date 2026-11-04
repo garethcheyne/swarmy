@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from "react"
-import { WavesIcon } from "lucide-react"
 
 import { api } from "@/lib/api"
+import { LogoTile } from "@/components/logo"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -38,9 +38,7 @@ export function Login({ onSuccess }: { onSuccess: () => void }) {
     <div className="flex min-h-svh items-center justify-center bg-muted/40 p-4">
       <Card className="w-full max-w-sm">
         <CardHeader>
-          <div className="mb-2 flex size-10 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-            <WavesIcon />
-          </div>
+          <LogoTile className="mb-2 size-14" />
           <CardTitle>Sign in to Swarmy</CardTitle>
           <CardDescription>
             The password is printed in the daemon log on first start.

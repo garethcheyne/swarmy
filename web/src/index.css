@@ -562,7 +562,7 @@
     --sidebar-ring: #34d399;
 }
 
-[data-palette="forest"]:not(.dark) {
+[data-palette="swarmy"]:not(.dark) {
     --background: #f2f4ef;
     --foreground: #1c2a1f;
     --card: #ffffff;
@@ -597,7 +597,7 @@
     --sidebar-ring: #4f8f2f;
 }
 
-[data-palette="forest"].dark {
+[data-palette="swarmy"].dark {
     --background: #0e1510;
     --foreground: #e4ebe1;
     --card: #152019;

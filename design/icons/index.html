@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Swarmy icon concepts</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400&display=swap">
+<style>
+  :root { --ink:#0e1510; --deep:#0a100c; --panel:#152019; --line:#223127; --fg:#e4ebe1; --dim:#97a68f; --moss:#9ccc65; --down:#5f9e3a;
+          --paper:#f2f4ef; --pine:#1c2a1f; }
+  * { box-sizing:border-box }
+  body { margin:0; background:var(--ink); color:var(--fg); font:15px/1.5 "IBM Plex Sans Condensed","Arial Narrow",sans-serif }
+  .wrap { max-width:1280px; margin:0 auto; padding:40px max(16px,3vw) 64px; display:flex; flex-direction:column; gap:28px }
+  h1 { margin:0; font-size:34px; font-weight:700 }
+  .lede { margin:0; color:var(--dim); max-width:72ch }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(390px,1fr)); gap:20px }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:14px; overflow:hidden; display:flex; flex-direction:column }
+  .card.pick { border-color:var(--moss); box-shadow:0 0 0 1px var(--moss) }
+  .hero { display:grid; grid-template-columns:auto 1fr; gap:22px; align-items:center; padding:24px; background:var(--deep) }
+  .tile { width:112px; height:112px; border-radius:26px; background:linear-gradient(160deg,#16231a,#0b120d); display:grid; place-items:center; box-shadow:inset 0 0 0 1px #223127, 0 12px 28px -12px #000 }
+  .tile svg { width:76px; height:76px }
+  .sizes { display:flex; align-items:end; gap:12px }
+  .sizes span { display:grid; place-items:center; background:var(--ink); box-shadow:inset 0 0 0 1px var(--line) }
+  .ctx { display:flex; flex-direction:column; gap:10px; min-width:0 }
+  .bar { display:flex; align-items:center; gap:8px; height:34px; padding:0 10px; background:#0a100c; border:1px solid var(--line); border-radius:6px; font-weight:700; font-size:14px }
+  .bar svg { width:18px; height:18px }
+  .bar .rates { margin-left:auto; font:400 11px "IBM Plex Mono",monospace; color:var(--dim) }
+  .tab { display:flex; align-items:center; gap:7px; height:30px; padding:0 10px; max-width:220px; background:#202124; color:#e8eaed; border-radius:8px 8px 0 0; font:12px system-ui,sans-serif }
+  .tab svg { width:16px; height:16px; flex:none }
+  .light { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:18px 24px; background:var(--paper); color:var(--pine) }
+  .word { display:flex; align-items:center; gap:9px; font-weight:700; font-size:26px; letter-spacing:-.01em }
+  .word svg { width:30px; height:30px }
+  .phone { display:flex; gap:10px }
+  .app { display:flex; flex-direction:column; align-items:center; gap:4px; font:11px system-ui,sans-serif; color:#3a4a3c }
+  .app span.i { width:46px; height:46px; border-radius:12px; display:grid; place-items:center; background:var(--ink) }
+  .app span.i svg { width:30px; height:30px }
+  .meta { padding:16px 20px 18px; display:flex; flex-direction:column; gap:6px; border-top:1px solid var(--line) }
+  .meta h2 { margin:0; font-size:20px; display:flex; align-items:center; gap:8px }
+  .badge { font-size:11px; font-weight:600; color:var(--ink); background:var(--moss); border-radius:999px; padding:1px 8px }
+  .meta p { margin:0; color:var(--dim); font-size:14px }
+  .note { color:var(--dim); font-size:13px; border-top:1px solid var(--line); padding-top:14px; max-width:84ch }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Swarmy icon concepts</h1>
+  <p class="lede">Seven directions for the Swarmy mark, each shown at every size it has to survive: the app tile, a phone home screen, 32 and 16 pixel favicons, the top bar and a browser tab, and the wordmark on light.</p>
+  <div class="grid" id="grid"></div>
+  <p class="note">Pick one (or two to combine) and I'll refine it: tune the geometry on a pixel grid so the 16 px favicon stays crisp, then regenerate the app icon, PWA and Apple icons, notification badge and the in-app logo.</p>
+</div>
+
+<script>
+  // Every mark is a 64x64 SVG using P (primary), A (accent) and K (knockout = background).
+  const hex = (cx, cy, r) => Array.from({ length: 6 }, (_, i) => {
+    const a = Math.PI / 3 * i - Math.PI / 2
+    return `${(cx + r * Math.cos(a)).toFixed(2)},${(cy + r * Math.sin(a)).toFixed(2)}`
+  }).join(" ")
+
+  const MARKS = {
+    // Peers around the edge, all streaming into one cell with a download arrow.
+    converge: ({ P, A, K }) => {
+      const peers = [-90, -30, 30, 150, 210].map((d) => {
+        const a = d * Math.PI / 180
+        return { x: 32 + 25 * Math.cos(a), y: 32 + 25 * Math.sin(a), lx: 32 + 15 * Math.cos(a), ly: 32 + 15 * Math.sin(a) }
+      })
+      return `
+        ${peers.map((p) => `<line x1="${p.x.toFixed(1)}" y1="${p.y.toFixed(1)}" x2="${p.lx.toFixed(1)}" y2="${p.ly.toFixed(1)}" stroke="${A}" stroke-width="3.2" stroke-linecap="round"/>`).join("")}
+        ${peers.map((p) => `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="4.6" fill="${P}"/>`).join("")}
+        <polygon points="${hex(32, 33, 13)}" fill="${P}"/>
+        <path d="M32 26v11m-5-4.5 5 5 5-5" stroke="${K}" stroke-width="3.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`
+    },
+    // A swarm flowing into an S, particles growing as they arrive.
+    swarm: ({ P, A }) => {
+      // An S is two joined arcs: the top one from upper right, over the top and
+      // round the left to the middle; the bottom one from the middle, round the
+      // right and under to the lower left.
+      const pts = []
+      const n = 14
+      for (let i = 0; i <= n; i++) {
+        const t = i / n
+        const top = t < 0.5
+        const u = top ? t / 0.5 : (t - 0.5) / 0.5
+        const deg = top ? -35 - u * 235 : -90 + u * 235
+        const a = (deg * Math.PI) / 180
+        const cy = top ? 20.5 : 43.5
+        pts.push({ x: 32 + 12.5 * Math.cos(a), y: cy + 11.5 * Math.sin(a), r: 1.9 + t * 3.6, c: t < 0.4 ? A : P })
+      }
+      return pts.map((p) => `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${p.r.toFixed(2)}" fill="${p.c}"/>`).join("")
+    },
+    // One bold hive cell with a download arrow cut through it.
+    cell: ({ P, K }) => `
+      <polygon points="${hex(32, 32, 28)}" fill="${P}" stroke="${P}" stroke-width="3" stroke-linejoin="round"/>
+      <path d="M32 15v26M21 31l11 11 11-11" stroke="${K}" stroke-width="7" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`,
+    // BitTorrent pieces: a 5x5 piece map where the pieces you have form an arrow.
+    pieces: ({ P, A }) => {
+      const on = ["..X..", "..X..", "X.X.X", ".XXX.", "..X.."]
+      let out = ""
+      for (let r = 0; r < 5; r++) for (let c = 0; c < 5; c++) {
+        const lit = on[r][c] === "X"
+        out += `<rect x="${5 + c * 11.2}" y="${5 + r * 11.2}" width="9" height="9" rx="2.2" fill="${lit ? P : A}" opacity="${lit ? 1 : 0.32}"/>`
+      }
+      return out
+    },
+    // A tight honeycomb cluster: the hive, readable at any size.
+    cluster: ({ P, A }) => `
+      <polygon points="${hex(20, 22, 14)}" fill="${A}"/>
+      <polygon points="${hex(44.2, 22, 14)}" fill="none" stroke="${P}" stroke-width="3.5" stroke-linejoin="round"/>
+      <polygon points="${hex(32.1, 43, 14)}" fill="${P}"/>`,
+    // A small, friendly bee: hexagon body, two wings. The mascot option.
+    bee: ({ P, A, K }) => `
+      <ellipse cx="20" cy="20" rx="12" ry="8.5" transform="rotate(-28 20 20)" fill="${A}" opacity=".85"/>
+      <ellipse cx="44" cy="20" rx="12" ry="8.5" transform="rotate(28 44 20)" fill="${A}" opacity=".85"/>
+      <polygon points="${hex(32, 38, 19)}" fill="${P}"/>
+      <path d="M17 34h30M16.5 42h31" stroke="${K}" stroke-width="4.2"/>
+      <path d="M27 18c-2-6-5-9-9-10M37 18c2-6 5-9 9-10" stroke="${P}" stroke-width="2.6" fill="none" stroke-linecap="round"/>`,
+    // The current mark, tidied: a cell with a cell rising inside it.
+    current: ({ P, K }) => `
+      <polygon points="${hex(32, 32, 29)}" fill="${P}"/>
+      <polygon points="${hex(32, 36, 12.5)}" fill="${K}"/>`,
+  }
+
+  const CONCEPTS = [
+    { id: "converge", name: "Converge", pick: true, idea: "The swarm, literally: peers around the edge all streaming into one cell, which holds a download arrow. Says what Swarmy does at a glance." },
+    { id: "cell", name: "Hive cell", idea: "One bold hexagon with a download arrow cut through it. The simplest and strongest at 16 px; the most like an app icon." },
+    { id: "pieces", name: "Piece map", idea: "BitTorrent's own picture: a grid of pieces, where the ones you have form a download arrow. Echoes the piece map in the inspector." },
+    { id: "swarm", name: "Swarm S", idea: "A stream of particles flowing into an S, growing as they arrive, like pieces landing. Distinctive, a little less clear when tiny." },
+    { id: "cluster", name: "Honeycomb", idea: "A tight cluster of three cells: filled, outlined and solid. Quiet and logo-like, works as a pattern too." },
+    { id: "bee", name: "Bee", idea: "A small, friendly mascot: a hexagon body with stripes and two wings. The most playful; good for stickers and the empty states." },
+    { id: "current", name: "Current, tidied", idea: "Today's mark with cleaner proportions: a cell with a smaller cell rising inside it. Here for comparison." },
+  ]
+
+  const svg = (id, colours, size) =>
+    `<svg viewBox="0 0 64 64" width="${size}" height="${size}" aria-hidden="true">${MARKS[id](colours)}</svg>`
+  const DARK = { P: "#9ccc65", A: "#5f9e3a", K: "#0e1510" }
+  const LIGHT = { P: "#1c2a1f", A: "#4f8f2f", K: "#f2f4ef" }
+
+  document.getElementById("grid").innerHTML = CONCEPTS.map((c) => `
+    <article class="card${c.pick ? " pick" : ""}">
+      <div class="hero">
+        <div class="tile">${svg(c.id, DARK, 76)}</div>
+        <div class="ctx">
+          <div class="sizes">
+            <span style="width:48px;height:48px;border-radius:12px">${svg(c.id, DARK, 32)}</span>
+            <span style="width:32px;height:32px;border-radius:7px">${svg(c.id, DARK, 22)}</span>
+            <span style="width:16px;height:16px;border-radius:3px">${svg(c.id, DARK, 13)}</span>
+          </div>
+          <div class="bar">${svg(c.id, DARK, 18)}Swarmy<span class="rates">▼ 23.7 MiB/s ▲ 12.0</span></div>
+          <div class="tab">${svg(c.id, DARK, 16)}Swarmy: All torrents</div>
+        </div>
+      </div>
+      <div class="light">
+        <div class="word">${svg(c.id, LIGHT, 30)}Swarmy</div>
+        <div class="phone">
+          <span class="app"><span class="i">${svg(c.id, DARK, 30)}</span>Swarmy</span>
+          <span class="app"><span class="i" style="background:#7cb342">${svg(c.id, { P: "#0e1510", A: "#2c4a1c", K: "#7cb342" }, 30)}</span>Swarmy</span>
+        </div>
+      </div>
+      <div class="meta">
+        <h2>${c.name}${c.pick ? '<span class="badge">My pick</span>' : ""}</h2>
+        <p>${c.idea}</p>
+      </div>
+    </article>`).join("")
+</script>
+</body>
+</html>

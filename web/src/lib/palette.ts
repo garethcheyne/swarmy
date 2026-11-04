@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from "react"
 
 export const PALETTES = [
-  { id: "forest", label: "Forest", note: "Pine and moss", swatch: ["#7cb342", "#2a7fb8", "#1c2a1f"] },
+  { id: "swarmy", label: "Swarmy", note: "Pine and moss, the house theme", swatch: ["#7cb342", "#2a7fb8", "#1c2a1f"] },
   { id: "emerald", label: "Emerald", note: "Jewel green and gold", swatch: ["#10b981", "#b8860b", "#0f2e22"] },
   { id: "midnight", label: "Midnight", note: "Navy and cyan", swatch: ["#5cc8ff", "#c26d0a", "#121a30"] },
   { id: "arctic", label: "Arctic", note: "Icy blue, signal orange", swatch: ["#2563eb", "#d9480f", "#e8eef5"] },
@@ -28,8 +28,10 @@ function read(): PaletteId {
   } catch {
     // storage unavailable (private mode etc.)
   }
-  const id = fromUrl ?? stored ?? "forest"
-  return PALETTES.some((p) => p.id === id) ? (id as PaletteId) : "forest"
+  // "forest" was the old name of the Swarmy theme.
+  const raw = fromUrl ?? stored ?? "swarmy"
+  const id = raw === "forest" ? "swarmy" : raw
+  return PALETTES.some((p) => p.id === id) ? (id as PaletteId) : "swarmy"
 }
 
 function apply(id: PaletteId) {
@@ -62,6 +64,6 @@ export function usePalette(): PaletteId {
       return () => listeners.delete(cb)
     },
     () => current,
-    () => "forest"
+    () => "swarmy"
   )
 }

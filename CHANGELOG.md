@@ -11,6 +11,12 @@ lists. Versions are `yyyy.mm.dd.build`: the release date, then 1 for the
 first release that day, 2 for the next, and so on. The top entry is the
 version Swarmy reports, and a release tag must match it.
 
+## [2026.11.05.7] - 2026-11-05
+
+### Improved
+- Swarmy now checks for a new release every hour instead of every six, so you hear about one sooner without opening Settings.
+- An "Update available" button in the top bar when there's a new release, on phones too. It opens Settings → About.
+
 ## [2026.11.05.6] - 2026-11-05
 
 ### Fixed

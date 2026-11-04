@@ -351,6 +351,7 @@ function Shell({ onSignedOut }: { onSignedOut: () => void }) {
         stats={snapshot?.stats}
         demo={!!info?.demo}
         reconnecting={connection !== "open" && !!snapshot}
+        update={info?.update_available ?? null}
         onOpenCommand={() => setCommandOpen(true)}
         onOpenMenu={() => setMenuOpen(true)}
         onAdd={() => openAdd()}

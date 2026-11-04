@@ -35,7 +35,9 @@ use crate::{
 };
 
 const REPO: &str = "garethcheyne/swarmy";
-const EVERY: Duration = Duration::from_secs(6 * 3600);
+/// GitHub allows 60 unauthenticated requests an hour per address, and an
+/// unchanged answer (304, thanks to the ETag) doesn't count against that.
+const EVERY: Duration = Duration::from_secs(3600);
 /// The updater should pick a request up within a second or two.
 const STUCK_AFTER: i64 = 60;
 
@@ -75,6 +77,8 @@ struct Known {
     notes: Vec<Release>,
     checked_at: Option<i64>,
     error: Option<String>,
+    /// GitHub's ETag for the last answer, so an unchanged list costs nothing.
+    etag: Option<String>,
 }
 
 pub struct Updates {
@@ -110,13 +114,22 @@ impl Updates {
     }
 
     async fn check(&self) {
-        let result = self.fetch().await;
+        let etag = self.known.lock().unwrap().etag.clone();
+        let result = self.fetch(etag.as_deref()).await;
         let mut known = self.known.lock().unwrap();
         known.checked_at = Some(now_unix());
         match result {
-            Ok((latest, notes)) => {
+            // Nothing new since last time.
+            Ok(None) => known.error = None,
+            Ok(Some((latest, notes, etag))) => {
+                if let Some(a) = &latest
+                    && known.latest.as_ref().map(|k| &k.version) != Some(&a.version)
+                {
+                    tracing::info!("Swarmy {} is available (this is {})", a.version, env!("SWARMY_VERSION"));
+                }
                 known.latest = latest;
                 known.notes = notes;
+                known.etag = etag;
                 known.error = None;
             }
             Err(e) => {
@@ -126,7 +139,9 @@ impl Updates {
         }
     }
 
-    async fn fetch(&self) -> anyhow::Result<(Option<Available>, Vec<Release>)> {
+    /// `None` when GitHub says nothing changed since `etag`.
+    #[allow(clippy::type_complexity)]
+    async fn fetch(&self, etag: Option<&str>) -> anyhow::Result<Option<(Option<Available>, Vec<Release>, Option<String>)>> {
         #[derive(Deserialize)]
         struct GhRelease {
             tag_name: String,
@@ -140,15 +155,20 @@ impl Updates {
             #[serde(default)]
             prerelease: bool,
         }
-        let list: Vec<GhRelease> = self
+        let mut req = self
             .http
             .get(format!("https://api.github.com/repos/{REPO}/releases?per_page=30"))
-            .header("accept", "application/vnd.github+json")
-            .send()
-            .await?
-            .error_for_status()?
-            .json()
-            .await?;
+            .header("accept", "application/vnd.github+json");
+        if let Some(etag) = etag {
+            req = req.header("if-none-match", etag);
+        }
+        let res = req.send().await?;
+        if res.status() == reqwest::StatusCode::NOT_MODIFIED {
+            return Ok(None);
+        }
+        let res = res.error_for_status()?;
+        let etag = res.headers().get("etag").and_then(|v| v.to_str().ok()).map(str::to_owned);
+        let list: Vec<GhRelease> = res.json().await?;
         let current = env!("SWARMY_VERSION");
         let mut newer_ones: Vec<GhRelease> = list
             .into_iter()
@@ -173,7 +193,7 @@ impl Updates {
             url: r.html_url.clone(),
             published: r.published_at.clone(),
         });
-        Ok((latest, notes))
+        Ok(Some((latest, notes, etag)))
     }
 
     fn method(&self) -> &'static str {

@@ -8,6 +8,9 @@
 #   SWARMY_PORT=8080         web UI port (first install only)
 #   SWARMY_DOWNLOADS=/path   download folder (first install only)
 #   SWARMY_UNINSTALL=1       remove Swarmy (keeps your data and downloads)
+#
+# Put options after sudo so they reach the script:
+#   curl -fsSL .../install.sh | sudo SWARMY_PORT=9090 bash
 set -euo pipefail
 
 REPO="${SWARMY_REPO:-garethcheyne/swarmy}"
@@ -20,6 +23,7 @@ ENV_FILE=/etc/swarmy/swarmy.env
 UNIT=/etc/systemd/system/swarmy.service
 
 say() { printf '\033[1;32m==>\033[0m %s\n' "$*"; }
+warn() { printf '\033[1;33mNote:\033[0m %s\n' "$*" >&2; }
 die() { printf '\033[1;31mError:\033[0m %s\n' "$*" >&2; exit 1; }
 
 [ "$(id -u)" -eq 0 ] || die "run this as root (put sudo in front of bash)."
@@ -35,6 +39,18 @@ if [ "${SWARMY_UNINSTALL:-0}" = "1" ]; then
   exit 0
 fi
 
+# Swarmy verifies TLS (Usenet servers, the location database) with the system's certificates.
+if [ ! -s /etc/ssl/certs/ca-certificates.crt ] && [ ! -s /etc/pki/tls/certs/ca-bundle.crt ]; then
+  if command -v apt-get >/dev/null; then
+    say "Installing CA certificates"
+    apt-get update -qq && apt-get install -y -qq ca-certificates >/dev/null
+  elif command -v dnf >/dev/null; then
+    dnf install -y -q ca-certificates
+  else
+    warn "no CA certificates found. Install your distro's ca-certificates package."
+  fi
+fi
+
 for tool in curl tar sha256sum; do
   command -v "$tool" >/dev/null || die "$tool is missing. Install it (e.g. apt install $tool) and try again."
 done
@@ -44,6 +60,14 @@ case "$(uname -m)" in
   aarch64 | arm64) ARCH=aarch64 ;;
   *) die "unsupported CPU $(uname -m). Swarmy ships for x86-64 and ARM64; try the Docker image." ;;
 esac
+
+# Release builds need glibc 2.36 or newer (Debian 12, Ubuntu 22.04, Fedora 37 and later).
+GLIBC="$(getconf GNU_LIBC_VERSION 2>/dev/null | awk '{print $2}')"
+if [ -z "$GLIBC" ]; then
+  die "this system doesn't use glibc (Alpine?). Use the Docker image instead."
+elif [ "$(printf '%s\n2.36\n' "$GLIBC" | sort -V | head -n1)" != "2.36" ]; then
+  die "glibc $GLIBC is too old; Swarmy needs 2.36 or newer (Debian 12, Ubuntu 22.04 or later). Use the Docker image instead."
+fi
 
 if [ "$VERSION" = "latest" ]; then
   VERSION="$(curl -fsSL "https://api.github.com/repos/$REPO/releases/latest" \
@@ -68,9 +92,18 @@ UPGRADE=0
 if ! id swarmy >/dev/null 2>&1; then
   useradd --system --home-dir "$DATA_DIR" --shell /usr/sbin/nologin swarmy
 fi
-install -d -o swarmy -g swarmy "$DATA_DIR" "$DOWNLOADS"
-install -d "$BIN_DIR" /etc/swarmy
+install -d -o swarmy -g swarmy "$DATA_DIR"
+mkdir -p "$DOWNLOADS"
+# A folder mounted from elsewhere (an NFS share, a Proxmox bind mount) may not
+# let us change its owner; Swarmy only needs to be able to write to it.
+if [ "$(stat -c %U "$DOWNLOADS")" != "swarmy" ] && ! chown swarmy:swarmy "$DOWNLOADS" 2>/dev/null; then
+  warn "couldn't make the swarmy user the owner of $DOWNLOADS. Make sure it can write there."
+fi
+install -d "$BIN_DIR" /etc/swarmy /usr/share/doc/swarmy
 install -m 0755 "$TMP/swarmy" "$BIN_DIR/swarmy"
+for doc in LICENSE-MIT LICENSE-APACHE THIRD-PARTY-NOTICES.md CHANGELOG.md; do
+  [ -f "$TMP/$doc" ] && install -m 0644 "$TMP/$doc" /usr/share/doc/swarmy/
+done
 ln -sf "$BIN_DIR/swarmy" /usr/local/bin/swarmy
 
 if [ ! -f "$ENV_FILE" ]; then
@@ -87,7 +120,7 @@ fi
 
 cat > "$UNIT" <<EOF
 [Unit]
-Description=Swarmy BitTorrent client
+Description=Swarmy BitTorrent and Usenet client
 Documentation=https://github.com/$REPO
 After=network-online.target
 Wants=network-online.target
@@ -121,12 +154,18 @@ PORT_NOW="$(sed -n 's/^SWARMY_WEB_ADDR=.*:\([0-9]*\)$/\1/p' "$ENV_FILE")"
 echo
 echo "  Open:      http://${HOST_IP:-localhost}:${PORT_NOW:-$PORT}"
 if [ "$UPGRADE" = "0" ]; then
-  sleep 3
-  PW="$(journalctl -u swarmy --no-pager -o cat 2>/dev/null | sed -n 's/^ *password: *//p' | tail -n1)"
+  # The first start creates the account and logs its password once.
+  PW=""
+  for _ in $(seq 1 15); do
+    PW="$(journalctl -u swarmy --no-pager -o cat 2>/dev/null | sed -n 's/^ *password: *//p' | tail -n1)"
+    [ -n "$PW" ] && break
+    sleep 1
+  done
   echo "  Username:  admin"
   echo "  Password:  ${PW:-run: journalctl -u swarmy | grep password}"
   echo
   echo "  Change the password in Settings > Web UI and security."
 fi
+echo "  Downloads: $(sed -n 's/^SWARMY_DOWNLOAD_DIR=//p' "$ENV_FILE")"
 echo "  Logs:      journalctl -u swarmy -f"
 echo "  Settings:  $ENV_FILE (service), and Settings in the web UI"

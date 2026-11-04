@@ -4,7 +4,8 @@
 #   docker run -d -p 8080:8080 -p 6881:6881 -p 6881:6881/udp \
 #     -v ./config:/config -v ./downloads:/downloads swarmy
 #
-# Release images are built by .github/workflows/release.yml from the same file.
+# Release images are built by .github/workflows/release.yml, from the release
+# binaries with deploy/release.Dockerfile (the same runtime as below).
 
 # ---- web UI -----------------------------------------------------------------
 FROM node:24-bookworm-slim AS web

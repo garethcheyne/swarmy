@@ -109,9 +109,10 @@ interface Props {
   onPause: (hashes: string[]) => void
   onResume: (hashes: string[]) => void
   onDelete: (hashes: string[]) => void
+  onMove: (hashes: string[]) => void
 }
 
-export function Inspector({ torrent: t, categories, onPause, onResume, onDelete }: Props) {
+export function Inspector({ torrent: t, categories, onPause, onResume, onDelete, onMove }: Props) {
   const map = useLive(t?.has_metadata ? t.hash : null, (h) => api.pieces(h, BUCKETS), 2000)
   const files = useLive<TorrentFile[]>(t?.has_metadata ? t.hash : null, api.files, 3000)
 
@@ -197,7 +198,39 @@ export function Inspector({ torrent: t, categories, onPause, onResume, onDelete 
             </SelectContent>
           </Select>
         </Row>
-        <Row label="Save path"><span className="data break-all">{t.save_path}</span></Row>
+        <Row label="Save path">
+          <span className="data break-all">{t.save_path}</span>
+          {!t.moving && (
+            <button
+              type="button"
+              onClick={() => onMove([t.hash])}
+              className="ml-2 text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
+            >
+              Move
+            </button>
+          )}
+          {t.auto_managed && t.category && (
+            <span className="block text-[11px] text-muted-foreground">Follows the {t.category} category's folder</span>
+          )}
+        </Row>
+        {t.download_path && (
+          <Row label="Downloading in">
+            <span className="data break-all">{t.download_path}</span>
+            <span className="block text-[11px] text-muted-foreground">Moves to the save path when it's complete</span>
+          </Row>
+        )}
+        {t.move_error && !t.moving && (
+          <Row label="Move failed">
+            <span className="text-destructive [overflow-wrap:anywhere]">{t.move_error}</span>
+            <button
+              type="button"
+              onClick={() => onMove([t.hash])}
+              className="ml-2 text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
+            >
+              Try again
+            </button>
+          </Row>
+        )}
         <Row label="Completed">{formatDate(t.completed_on)}</Row>
         <Row label="Info-hash">
           <button
@@ -214,7 +247,7 @@ export function Inspector({ torrent: t, categories, onPause, onResume, onDelete 
             <CopyIcon className="size-3 shrink-0" />
           </button>
         </Row>
-        {t.error && <Row label="Error"><span className="text-destructive">{t.error}</span></Row>}
+        {t.error && <Row label="Error"><span className="text-destructive [overflow-wrap:anywhere]">{t.error}</span></Row>}
       </dl>
 
       {t.has_metadata && (

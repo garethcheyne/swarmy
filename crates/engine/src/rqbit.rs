@@ -4,7 +4,10 @@ use std::{
     num::NonZeroU32,
     path::PathBuf,
     str::FromStr,
-    sync::{Arc, Mutex},
+    sync::{
+        Arc, Mutex,
+        atomic::{AtomicU64, Ordering},
+    },
 };
 
 use anyhow::Context;
@@ -16,8 +19,9 @@ use librqbit::{
 };
 
 use crate::{
-    AddOptions, AddOutcome, AddSource, ContentLayout, Engine, FileEntry, NetworkInfo, PeerEntry, PieceMap,
-    TorrentState, TorrentStatus,
+    AddOptions, AddOutcome, AddSource, ContentLayout, Engine, FileEntry, MoveProgress, NetworkInfo, PeerEntry,
+    PieceMap, TorrentState, TorrentStatus,
+    relocate::{self, Journal, Journals, Phase},
 };
 
 #[derive(Debug, Clone)]
@@ -55,12 +59,41 @@ struct Pending {
     error: Option<String>,
 }
 
+/// A torrent whose files are moving. While it's briefly out of the session
+/// (between removing it and adding it back at the new folder) it's shown from
+/// `last`; pause, resume and remove requests are held until the move ends.
+struct Moving {
+    last: TorrentStatus,
+    done: Arc<AtomicU64>,
+    total: u64,
+    paused: bool,
+    /// Remove once moved: `Some(delete_files)`.
+    remove: Option<bool>,
+}
+
+fn moving_status(mut s: TorrentStatus, m: &Moving) -> TorrentStatus {
+    s.state = TorrentState::Moving;
+    s.download_speed = 0;
+    s.upload_speed = 0;
+    s.eta_secs = None;
+    s.peers = 0;
+    s.seeds = 0;
+    s.moving = Some(MoveProgress {
+        done_bytes: m.done.load(Ordering::Relaxed).min(m.total),
+        total_bytes: m.total,
+    });
+    s
+}
+
 pub struct RqbitEngine {
     session: Arc<Session>,
     api: librqbit::Api,
     bind_interface: Option<String>,
     default_dir: PathBuf,
+    state_dir: PathBuf,
     pending: Arc<Mutex<HashMap<String, Pending>>>,
+    moving: Mutex<HashMap<String, Moving>>,
+    journals: Journals,
 }
 
 impl RqbitEngine {
@@ -102,17 +135,119 @@ impl RqbitEngine {
             ..Default::default()
         };
 
+        // Settle any move a crash interrupted before the session sees the files.
+        let journals = Journals::new(&cfg.state_dir);
+        let readd = relocate::recover(&journals, &cfg.state_dir);
+
         let session = Session::new_with_opts(cfg.default_download_dir.clone(), opts)
             .await
             .context("starting torrent session")?;
+        for j in readd {
+            let added = match journals.torrent(&j.info_hash) {
+                Ok(bytes) => add_at(&session, bytes.into(), &j.from, j.paused, j.only_files.clone()).await,
+                Err(e) => Err(e),
+            };
+            match added {
+                Ok(()) => journals.finish(&j.info_hash),
+                Err(e) => tracing::error!("restoring {} after an interrupted move: {e:#}", j.info_hash),
+            }
+        }
         let api = librqbit::Api::new(session.clone(), None);
         Ok(Self {
             session,
             api,
             bind_interface: cfg.bind_interface,
             default_dir: cfg.default_download_dir,
+            state_dir: cfg.state_dir,
             pending: Default::default(),
+            moving: Default::default(),
+            journals,
         })
+    }
+
+    fn resume_file(&self, hash: &str) -> PathBuf {
+        self.state_dir.join(format!("{hash}.bitv"))
+    }
+
+    /// The pause state the user wants once a move ends.
+    fn wants_paused(&self, hash: &str) -> bool {
+        self.moving.lock().unwrap().get(hash).is_some_and(|m| m.paused)
+    }
+
+    async fn restart_unless_paused(&self, hash: &str, t: &Arc<ManagedTorrent>) {
+        if !self.wants_paused(hash) {
+            let _ = self.session.unpause(t).await;
+        }
+    }
+
+    /// A move, once it's registered in `moving` and checked.
+    async fn relocate_registered(&self, t: Arc<ManagedTorrent>, mut j: Journal, done: Arc<AtomicU64>) -> anyhow::Result<()> {
+        let hash = j.info_hash.clone();
+        let id = t.info_hash();
+        let torrent = t.with_metadata(|m| m.torrent_bytes.clone())?;
+        anyhow::ensure!(!torrent.is_empty(), "This torrent's details aren't available to move it with.");
+
+        // Stop it touching the files, and record the move before moving anything.
+        if !t.is_paused() {
+            self.session.pause(&t).await.context("pausing the torrent")?;
+        }
+        if let Err(e) = self.journals.begin(&j, &torrent, &self.resume_file(&hash)) {
+            self.journals.finish(&hash);
+            self.restart_unless_paused(&hash, &t).await;
+            return Err(e);
+        }
+
+        let (job, counter) = (j.clone(), done.clone());
+        let moved = tokio::task::spawn_blocking(move || relocate::move_files(&job, &counter))
+            .await
+            .map_err(anyhow::Error::from)
+            .and_then(|r| r);
+        if let Err(e) = moved {
+            // move_files has already put everything back.
+            self.journals.finish(&hash);
+            self.restart_unless_paused(&hash, &t).await;
+            return Err(e);
+        }
+
+        // Point the torrent at the new folder: take it out of the session (which
+        // deletes its resume data), restore that, and add it back.
+        drop(t);
+        let failed = match self.session.delete(TorrentIdOrHash::Hash(id), false).await {
+            Err(e) => Some(e.context("switching the torrent to its new folder")),
+            Ok(()) => {
+                self.journals.restore_resume(&hash, &self.resume_file(&hash));
+                add_at(&self.session, torrent.clone(), &j.to, self.wants_paused(&hash), j.only_files.clone())
+                    .await
+                    .err()
+                    .map(|e| e.context("starting the torrent from its new folder"))
+            }
+        };
+        if let Some(why) = failed {
+            // Put the files back and the torrent where it was.
+            let job = j.clone();
+            let _ = tokio::task::spawn_blocking(move || relocate::undo(&job)).await;
+            match self.session.get(TorrentIdOrHash::Hash(id)) {
+                Some(t) => self.restart_unless_paused(&hash, &t).await,
+                None => {
+                    self.journals.restore_resume(&hash, &self.resume_file(&hash));
+                    add_at(&self.session, torrent, &j.from, self.wants_paused(&hash), j.only_files.clone())
+                        .await
+                        .context("putting the torrent back after a failed move")?;
+                }
+            }
+            self.journals.finish(&hash);
+            return Err(why);
+        }
+
+        // It runs from the new folder. Delete copied originals and empty folders.
+        j.phase = Phase::Cleanup;
+        if let Err(e) = self.journals.write(&j) {
+            tracing::warn!("{e:#}");
+        }
+        let job = j.clone();
+        let _ = tokio::task::spawn_blocking(move || relocate::cleanup(&job)).await;
+        self.journals.finish(&hash);
+        Ok(())
     }
 
     fn handle(&self, hash: &str) -> anyhow::Result<Arc<ManagedTorrent>> {
@@ -177,6 +312,29 @@ async fn resolve_and_add(
     }
 }
 
+/// Add a torrent whose files are already in `folder`.
+async fn add_at(
+    session: &Arc<Session>,
+    torrent: bytes::Bytes,
+    folder: &std::path::Path,
+    paused: bool,
+    only_files: Option<Vec<usize>>,
+) -> anyhow::Result<()> {
+    session
+        .add_torrent(
+            AddTorrent::from_bytes(torrent),
+            Some(AddTorrentOptions {
+                paused,
+                overwrite: true,
+                output_folder: Some(folder.to_string_lossy().into_owned()),
+                only_files,
+                ..Default::default()
+            }),
+        )
+        .await?;
+    Ok(())
+}
+
 fn status_of(t: &ManagedTorrent) -> TorrentStatus {
     let stats = t.stats();
     let live = stats.live.as_ref();
@@ -235,6 +393,7 @@ fn status_of(t: &ManagedTorrent) -> TorrentStatus {
         output_folder,
         content_path,
         error: stats.error,
+        moving: None,
     }
 }
 
@@ -260,6 +419,7 @@ fn pending_status(hash: &str, p: &Pending) -> TorrentStatus {
         output_folder: p.save.clone(),
         content_path: p.save.clone(),
         error: p.error.clone(),
+        moving: None,
     }
 }
 
@@ -341,10 +501,24 @@ impl Engine for RqbitEngine {
     }
 
     fn list(&self) -> Vec<TorrentStatus> {
-        let mut out: Vec<TorrentStatus> = self
-            .session
-            .with_torrents(|iter| iter.map(|(_, t)| status_of(t)).collect());
-        let known: std::collections::HashSet<String> = out.iter().map(|t| t.info_hash.clone()).collect();
+        let moving = self.moving.lock().unwrap();
+        let mut out: Vec<TorrentStatus> = self.session.with_torrents(|iter| {
+            iter.map(|(_, t)| status_of(t))
+                .filter_map(|s| match moving.get(&s.info_hash) {
+                    Some(m) if m.remove.is_some() => None,
+                    Some(m) => Some(moving_status(s, m)),
+                    None => Some(s),
+                })
+                .collect()
+        });
+        let mut known: std::collections::HashSet<String> = out.iter().map(|t| t.info_hash.clone()).collect();
+        // Mid-swap, a moving torrent is briefly out of the session.
+        for (h, m) in moving.iter() {
+            if m.remove.is_none() && known.insert(h.clone()) {
+                out.push(moving_status(m.last.clone(), m));
+            }
+        }
+        drop(moving);
         let pending = self.pending.lock().unwrap();
         out.extend(
             pending
@@ -356,6 +530,13 @@ impl Engine for RqbitEngine {
     }
 
     fn status(&self, hash: &str) -> Option<TorrentStatus> {
+        if let Some(m) = self.moving.lock().unwrap().get(hash) {
+            if m.remove.is_some() {
+                return None;
+            }
+            let live = self.handle(hash).map(|t| status_of(&t)).unwrap_or_else(|_| m.last.clone());
+            return Some(moving_status(live, m));
+        }
         if let Ok(t) = self.handle(hash) {
             return Some(status_of(&t));
         }
@@ -439,6 +620,10 @@ impl Engine for RqbitEngine {
     }
 
     async fn pause(&self, hash: &str) -> anyhow::Result<()> {
+        if let Some(m) = self.moving.lock().unwrap().get_mut(hash) {
+            m.paused = true;
+            return Ok(());
+        }
         if let Some(p) = self.pending.lock().unwrap().get_mut(hash) {
             p.paused = true;
             return Ok(());
@@ -451,6 +636,10 @@ impl Engine for RqbitEngine {
     }
 
     async fn resume(&self, hash: &str) -> anyhow::Result<()> {
+        if let Some(m) = self.moving.lock().unwrap().get_mut(hash) {
+            m.paused = false;
+            return Ok(());
+        }
         if let Some(p) = self.pending.lock().unwrap().get_mut(hash) {
             p.paused = false;
             return Ok(());
@@ -463,6 +652,10 @@ impl Engine for RqbitEngine {
     }
 
     async fn remove(&self, hash: &str, delete_files: bool) -> anyhow::Result<()> {
+        if let Some(m) = self.moving.lock().unwrap().get_mut(hash) {
+            m.remove = Some(delete_files);
+            return Ok(());
+        }
         {
             let mut pending = self.pending.lock().unwrap();
             if let Some(p) = pending.get_mut(hash) {
@@ -478,6 +671,58 @@ impl Engine for RqbitEngine {
         self.session
             .delete(TorrentIdOrHash::Hash(id), delete_files)
             .await
+    }
+
+    async fn relocate(&self, hash: &str, to: PathBuf) -> anyhow::Result<()> {
+        anyhow::ensure!(
+            !self.pending.lock().unwrap().contains_key(hash),
+            "This torrent is still fetching its details. Move it once it has started."
+        );
+        let t = self.handle(hash)?;
+        let from = t.output_folder().to_path_buf();
+        if relocate::same_dir(&from, &to) {
+            return Ok(());
+        }
+        let name = t.name();
+        let files: Vec<PathBuf> = t.with_metadata(|m| {
+            m.file_infos.iter().filter(|f| !f.attrs.padding).map(|f| f.relative_filename.clone()).collect()
+        })?;
+        // A multi-file torrent's folder is its own (named after it); a single
+        // file sits straight in a shared folder that must stay.
+        let prune_from = files.len() > 1 && from.file_name().map(|n| n.to_string_lossy().into_owned()) == name;
+        let j = Journal {
+            info_hash: hash.to_owned(),
+            from,
+            to,
+            files,
+            paused: t.is_paused(),
+            only_files: t.only_files(),
+            prune_from,
+            phase: Phase::Files,
+        };
+        relocate::check_targets(&j)?;
+
+        let done = Arc::new(AtomicU64::new(0));
+        {
+            let mut moving = self.moving.lock().unwrap();
+            anyhow::ensure!(!moving.contains_key(hash), "This torrent is already being moved.");
+            moving.insert(
+                hash.to_owned(),
+                Moving {
+                    last: status_of(&t),
+                    done: done.clone(),
+                    total: relocate::bytes_present(&j),
+                    paused: j.paused,
+                    remove: None,
+                },
+            );
+        }
+        let result = self.relocate_registered(t, j, done).await;
+        let ended = self.moving.lock().unwrap().remove(hash);
+        if let Some(Moving { remove: Some(delete_files), .. }) = ended {
+            self.remove(hash, delete_files).await?;
+        }
+        result
     }
 
     fn set_rate_limits(&self, download: Option<u32>, upload: Option<u32>) {

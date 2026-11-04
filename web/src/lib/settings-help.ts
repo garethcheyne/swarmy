@@ -26,6 +26,18 @@ export const SETTINGS_HELP = {
     effect: "Nothing downloads until you press Resume. This includes torrents sent by Sonarr and Radarr, which will sit waiting too.",
     tip: "Leave this off unless you want to check every download before it starts.",
   },
+  incomplete_dir: {
+    title: "Unfinished downloads folder",
+    what: "Torrents download into this folder, then Swarmy moves them to their save folder the moment they're complete.",
+    effect: "Your library and Sonarr or Radarr only ever see finished files. While a torrent is moving, Sonarr and Radarr see it as still downloading and wait. The move keeps it seeding without downloading anything again.",
+    tip: "Put it on a fast disk (an SSD) and the save folders on your big storage. If both are on the same disk, the move is instant; across disks it's a copy, which takes a while for big torrents.",
+  },
+  category_moves: {
+    title: "Move files when the category changes",
+    what: "Torrents added without a folder of their own follow their category: they live in its folder. With this on, changing the category moves the files to the new category's folder, and changing a category's folder moves every torrent in it.",
+    effect: "Sonarr and Radarr can use this: set a \"post-import category\" and finished torrents move to a seeding folder after import. Moving a torrent by hand stops it following its category. Removing a category never moves anything.",
+    tip: "This is qBittorrent's Automatic Torrent Management. Turn it off if you'd rather files never move without you asking.",
+  },
 
   queue: {
     title: "Queue torrents",

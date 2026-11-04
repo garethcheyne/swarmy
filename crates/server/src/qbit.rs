@@ -11,6 +11,8 @@
 //! - `content_path` / `root_path` / `save_path` must be exact: Sonarr imports from them.
 //! - We report Web API 2.11.4 (qBittorrent 5.1), so clients use `stopped`,
 //!   `inactiveSeedingTimeLimit`, share limits on add and `root_path`.
+//! - A torrent waiting for or in the middle of a move reports `moving`, which
+//!   Sonarr treats as still downloading, so it never imports half-moved files.
 
 use std::{collections::HashMap, net::SocketAddr};
 
@@ -76,6 +78,8 @@ pub fn router(state: Shared) -> Router<Shared> {
         .route("/torrents/increasePrio", post(top_prio))
         .route("/torrents/decreasePrio", post(bottom_prio))
         .route("/torrents/setForceStart", post(set_force_start))
+        .route("/torrents/setLocation", post(set_location))
+        .route("/torrents/setAutoManagement", post(set_auto_management))
         .route("/transfer/info", get(transfer_info))
         .route("/transfer/speedLimitsMode", get(speed_limits_mode))
         .route("/transfer/toggleSpeedLimitsMode", post(toggle_speed_limits_mode))
@@ -210,7 +214,8 @@ fn snapshot_torrent(state: &Shared, hash: &str) -> Option<TorrentView> {
     }
     let status = state.engine.status(&hash)?;
     let meta = state.store.read(|d| d.torrents.get(&hash).cloned()).unwrap_or_default();
-    Some(TorrentView::new(status, &meta, now_unix()))
+    let moving = state.mover.busy().contains(&hash);
+    Some(TorrentView::new(status, &meta, now_unix(), moving))
 }
 
 // ---------------------------------------------------------------- auth
@@ -289,12 +294,19 @@ async fn preferences(State(state): State<Shared>) -> Json<Value> {
         SeedAction::RemoveWithFiles => 3,
     };
     let net = state.engine.network();
+    let incomplete = state
+        .incomplete_dir("")
+        .unwrap_or_else(|| state.download_dir().join("incomplete"));
     Json(json!({
         "locale": "en",
         "save_path": state.download_dir(),
-        "temp_path_enabled": false,
-        "temp_path": "",
-        "auto_tmm_enabled": false,
+        "temp_path_enabled": s.downloads.use_incomplete_dir,
+        "temp_path": incomplete,
+        // Torrents added without a folder follow their category's.
+        "auto_tmm_enabled": true,
+        "torrent_changed_tmm_enabled": s.downloads.category_moves,
+        "category_changed_tmm_enabled": s.downloads.category_moves,
+        "save_path_changed_tmm_enabled": s.downloads.category_moves,
         "torrent_content_layout": "Original",
         "add_to_top_of_queue": false,
         "add_stopped_enabled": s.downloads.add_paused,
@@ -359,6 +371,9 @@ async fn set_preferences(State(state): State<Shared>, form: QForm) -> Response {
         if let Some(v) = n("max_active_uploads") { s.queue.max_uploads = v.max(0.0) as u32 }
         if let Some(v) = n("max_active_torrents") { s.queue.max_active = v.max(1.0) as u32 }
         if let Some(v) = b("add_stopped_enabled").or(b("start_paused_enabled")) { s.downloads.add_paused = v }
+        if let Some(v) = b("temp_path_enabled") { s.downloads.use_incomplete_dir = v }
+        if let Some(v) = p.get("temp_path").and_then(Value::as_str) { s.downloads.incomplete_dir = v.trim().to_owned() }
+        if let Some(v) = b("category_changed_tmm_enabled").or(b("torrent_changed_tmm_enabled")) { s.downloads.category_moves = v }
         let ratio_on = b("max_ratio_enabled");
         if let Some(v) = n("max_ratio") { if v >= 0.0 { s.seeding.ratio_limit = Some(v) } }
         if ratio_on == Some(false) { s.seeding.ratio_limit = None }
@@ -384,6 +399,8 @@ async fn set_preferences(State(state): State<Shared>, form: QForm) -> Response {
 fn qbit_state(t: &TorrentView) -> &'static str {
     let done = t.progress >= 1.0;
     match t.state {
+        _ if t.moving.is_some() => "moving",
+        TorrentState::Moving => "moving",
         TorrentState::Error => "error",
         TorrentState::Initializing if !t.has_metadata => {
             if t.force_start { "forcedMetaDL" } else { "metaDL" }
@@ -442,7 +459,7 @@ fn torrent_json(t: &TorrentView, now: i64, global_ratio: Option<f64>, global_tim
         "super_seeding": false,
         "force_start": t.force_start,
         "save_path": t.save_path,
-        "download_path": "",
+        "download_path": t.download_path,
         "content_path": t.content_path,
         "root_path": t.root_path,
         "added_on": t.added_on,
@@ -466,7 +483,7 @@ fn torrent_json(t: &TorrentView, now: i64, global_ratio: Option<f64>, global_tim
         "last_activity": t.last_activity,
         "time_active": (now - t.added_on).max(0),
         "seeding_time": seeding_time(t, now),
-        "auto_tmm": false,
+        "auto_tmm": t.auto_managed,
         "availability": if t.has_metadata { 1.0 } else { -1.0 },
         "reannounce": 0,
         "private": false,
@@ -543,7 +560,7 @@ async fn properties(State(state): State<Shared>, Query(q): Query<HashMap<String,
         "infohash_v2": "",
         "name": t.name,
         "save_path": t.save_path,
-        "download_path": "",
+        "download_path": t.download_path,
         "creation_date": -1,
         "piece_size": if let Some(p) = &pieces { if p.total > 0 { t.size / u64::from(p.total) } else { 0 } } else { 0 },
         "comment": "",
@@ -697,6 +714,31 @@ async fn set_category(State(state): State<Shared>, form: QForm) -> Response {
     }
     let list = hashes(&state, form.get("hashes"));
     set_queued_flag(&state, &list, |m| m.category = cat.clone()).await;
+    crate::mover::category_changed(&state, &list);
+    StatusCode::OK.into_response()
+}
+
+/// Move torrents' files to `location`; they stop following their category.
+async fn set_location(State(state): State<Shared>, form: QForm) -> Response {
+    let location = form.get("location").unwrap_or_default().trim().to_owned();
+    if location.is_empty() {
+        return text(StatusCode::BAD_REQUEST, "Save path cannot be empty");
+    }
+    let list = hashes(&state, form.get("hashes"));
+    match crate::mover::move_by_hand(&state, &list, Some(std::path::Path::new(&location))) {
+        Ok(()) => StatusCode::OK.into_response(),
+        Err(e) => (StatusCode::CONFLICT, e.to_string()).into_response(),
+    }
+}
+
+/// Turn following the category's folder on (which moves files there) or off.
+async fn set_auto_management(State(state): State<Shared>, form: QForm) -> Response {
+    let list = hashes(&state, form.get("hashes"));
+    if form.flag("enable") {
+        let _ = crate::mover::move_by_hand(&state, &list, None);
+    } else {
+        set_queued_flag(&state, &list, |m| m.auto_managed = false).await;
+    }
     StatusCode::OK.into_response()
 }
 
@@ -732,7 +774,10 @@ async fn edit_category(State(state): State<Shared>, form: QForm) -> Response {
         None => false,
     });
     match found {
-        Ok(true) => StatusCode::OK.into_response(),
+        Ok(true) => {
+            crate::mover::category_folder_changed(&state, &name);
+            StatusCode::OK.into_response()
+        }
         _ => text(StatusCode::CONFLICT, "Category does not exist"),
     }
 }
@@ -750,7 +795,9 @@ async fn remove_categories(State(state): State<Shared>, form: QForm) -> Response
             d.categories.remove(n);
             for m in d.torrents.values_mut() {
                 if &m.category == n {
+                    // Removing a category never moves files; they stay put.
                     m.category.clear();
+                    m.auto_managed = false;
                 }
             }
         }
@@ -975,6 +1022,10 @@ mod tests {
             force_start: false,
             priority: 0,
             last_activity: 0,
+            download_path: String::new(),
+            auto_managed: false,
+            moving: None,
+            move_error: None,
         }
     }
 
@@ -985,6 +1036,10 @@ mod tests {
         assert_eq!(qbit_state(&view(TorrentState::Downloading, 0.4)), "stalledDL");
         assert_eq!(qbit_state(&view(TorrentState::Seeding, 1.0)), "stalledUP");
         assert_eq!(qbit_state(&view(TorrentState::Error, 0.4)), "error");
+        assert_eq!(qbit_state(&view(TorrentState::Moving, 1.0)), "moving");
+        let mut waiting = view(TorrentState::Seeding, 1.0);
+        waiting.moving = Some(crate::state::MoveView { progress: 0.0, queued: true });
+        assert_eq!(qbit_state(&waiting), "moving", "Sonarr must not import before the move");
         let mut meta = view(TorrentState::Initializing, 0.0);
         meta.has_metadata = false;
         assert_eq!(qbit_state(&meta), "metaDL");

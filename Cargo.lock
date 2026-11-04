@@ -3894,9 +3894,12 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
+ "bytes",
  "librqbit",
  "rand 0.10.3",
  "serde",
+ "serde_json",
+ "tempfile",
  "tokio",
  "tracing",
 ]

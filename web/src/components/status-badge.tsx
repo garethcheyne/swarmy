@@ -3,6 +3,7 @@ import {
   ClockIcon,
   ArrowUpIcon,
   CircleAlertIcon,
+  FolderInputIcon,
   LoaderCircleIcon,
   PauseIcon,
 } from "lucide-react"
@@ -25,6 +26,7 @@ const CONFIG = {
   },
   paused: { label: "Paused", variant: "outline", icon: PauseIcon },
   error: { label: "Error", variant: "destructive", icon: CircleAlertIcon },
+  moving: { label: "Moving", variant: "outline", icon: FolderInputIcon },
   initializing: {
     label: "Checking",
     variant: "outline",
@@ -37,7 +39,10 @@ export function StatusBadge({ torrent }: { torrent: Torrent }) {
     torrent.state === "downloading" &&
     torrent.download_speed === 0 &&
     torrent.peers === 0
-  const state = torrent.queued
+  const move = torrent.moving
+  const state = move
+    ? { ...CONFIG.moving, label: move.queued ? "Waiting to move" : `Moving, ${Math.floor(move.progress * 100)}%` }
+    : torrent.queued
     ? { ...CONFIG.paused, label: "Queued", icon: ClockIcon }
     : torrent.state === "initializing" && !torrent.has_metadata
       ? { ...CONFIG.initializing, label: "Metadata" }

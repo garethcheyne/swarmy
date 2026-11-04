@@ -4,6 +4,7 @@
 //! BitTorrent implementation (librqbit today) can be swapped without touching
 //! the HTTP layer or the qBittorrent compatibility shim.
 
+mod relocate;
 mod rqbit;
 mod sim;
 
@@ -13,6 +14,7 @@ use async_trait::async_trait;
 use serde::Serialize;
 
 pub use rqbit::{RqbitConfig, RqbitEngine};
+pub use relocate::same_dir;
 pub use sim::{DemoSeed, SimEngine};
 
 /// Lowercase 40-character hex v1 info-hash.
@@ -27,6 +29,8 @@ pub enum TorrentState {
     Seeding,
     Paused,
     Error,
+    /// Its files are moving to another folder.
+    Moving,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -51,6 +55,14 @@ pub struct TorrentStatus {
     /// single-file torrent (qBittorrent's `content_path`).
     pub content_path: PathBuf,
     pub error: Option<String>,
+    /// Set while the torrent's files are being moved.
+    pub moving: Option<MoveProgress>,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
+pub struct MoveProgress {
+    pub done_bytes: u64,
+    pub total_bytes: u64,
 }
 
 impl TorrentStatus {
@@ -195,7 +207,13 @@ pub trait Engine: Send + Sync + 'static {
     fn network(&self) -> NetworkInfo;
     async fn pause(&self, hash: &str) -> anyhow::Result<()>;
     async fn resume(&self, hash: &str) -> anyhow::Result<()>;
+    /// Remove the torrent. During a move this takes effect once the move ends.
     async fn remove(&self, hash: &str, delete_files: bool) -> anyhow::Result<()>;
+    /// Move the torrent's files so they live in `output_folder`, and carry on
+    /// from there without re-downloading. Returns when the move is done; the
+    /// torrent reports [`TorrentState::Moving`] meanwhile. Refuses to
+    /// overwrite anything, and on failure leaves the torrent where it was.
+    async fn relocate(&self, hash: &str, output_folder: PathBuf) -> anyhow::Result<()>;
     /// Global limits in bytes per second; `None` means unlimited.
     fn set_rate_limits(&self, download: Option<u32>, upload: Option<u32>);
     async fn shutdown(&self);

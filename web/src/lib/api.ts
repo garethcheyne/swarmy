@@ -6,6 +6,7 @@ export type TorrentState =
   | "seeding"
   | "paused"
   | "error"
+  | "moving"
 
 export interface Torrent {
   hash: string
@@ -30,6 +31,14 @@ export interface Torrent {
   /** Paused by the queue, waiting for a free slot. */
   queued: boolean
   error: string | null
+  /** While it downloads in the incomplete folder: the folder it's in there. */
+  download_path: string
+  /** Follows its category's folder, so a category change moves its files. */
+  auto_managed: boolean
+  /** Set while its files are moving, or waiting their turn to. */
+  moving: { progress: number; queued: boolean } | null
+  /** Why the last move failed. */
+  move_error: string | null
 }
 
 export interface SystemSample {
@@ -152,7 +161,14 @@ export interface Changelog {
 export type SeedAction = "pause" | "remove" | "remove_with_files"
 
 export interface Settings {
-  downloads: { default_save_path: string; add_paused: boolean }
+  downloads: {
+    default_save_path: string
+    add_paused: boolean
+    use_incomplete_dir: boolean
+    /** Empty = "<download folder>/incomplete". */
+    incomplete_dir: string
+    category_moves: boolean
+  }
   connection: {
     listen_port: number
     upnp: boolean
@@ -383,6 +399,9 @@ export const api = {
       "/torrents/delete",
       json({ hashes, delete_files: deleteFiles })
     ),
+  /** Move to `location`, or back under each torrent's category folder with null. */
+  move: (hashes: string[], location: string | null) =>
+    request<void>("/torrents/move", json({ hashes, location })),
   files: (hash: string) => request<TorrentFile[]>(`/torrents/${hash}/files`),
   setMeta: (hash: string, meta: { category?: string; tags?: string[] }) =>
     request<void>(`/torrents/${hash}/meta`, { ...json(meta), method: "PUT" }),

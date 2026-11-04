@@ -23,6 +23,9 @@ The first Swarmy: a BitTorrent client with a web UI you'd actually want to look 
 - Speed limits, an alternative "turtle" speed and a schedule for it.
 - Queueing, force start, and seeding limits by ratio, seeding time or inactivity, globally or per torrent.
 - Categories and tags with their own save folders.
+- Move torrents to another folder (one, or a whole selection) and they carry on seeding from there without downloading anything again. Moves survive a crash or power cut halfway through, and never overwrite anything.
+- An optional folder for unfinished downloads: torrents move to their save folder when complete, so Sonarr, Radarr and your library only see finished files.
+- Torrents follow their category: change the category, or the category's folder, and the files move to match. This works with Sonarr and Radarr's post-import category.
 - Twelve colour themes, each with light and dark modes.
 - Install it as an app (PWA) on your phone or desktop, with notifications when downloads finish or fail.
 - A mini view that floats on top of your other windows.

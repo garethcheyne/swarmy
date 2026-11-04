@@ -44,6 +44,8 @@ pub struct AppState {
     pub usenet: swarmy_usenet::Downloader,
     /// Demo mode's built-in mock Usenet server.
     pub demo_usenet: Mutex<Option<swarmy_usenet::Server>>,
+    /// Torrents waiting to move between folders.
+    pub mover: crate::mover::Mover,
     /// Latest snapshot, refreshed every second by [`run_ticker`].
     pub snapshot: watch::Receiver<Arc<Snapshot>>,
 }
@@ -83,6 +85,22 @@ pub struct TorrentView {
     pub force_start: bool,
     pub priority: i64,
     pub last_activity: i64,
+    /// While it downloads in the incomplete folder: the folder there (else empty).
+    pub download_path: String,
+    /// Follows its category's folder.
+    pub auto_managed: bool,
+    /// Set while its files are moving, or waiting to.
+    pub moving: Option<MoveView>,
+    /// Why the last move failed.
+    pub move_error: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct MoveView {
+    /// 0..1 of the bytes moved.
+    pub progress: f64,
+    /// Waiting for another move to finish first.
+    pub queued: bool,
 }
 
 #[derive(Debug, Clone, Default, Serialize)]
@@ -107,14 +125,29 @@ pub struct Snapshot {
 }
 
 impl TorrentView {
-    pub fn new(s: TorrentStatus, meta: &TorrentMeta, last_activity: i64) -> Self {
+    /// `waiting_to_move`: queued in the mover (or done downloading and due to move).
+    pub fn new(s: TorrentStatus, meta: &TorrentMeta, last_activity: i64, waiting_to_move: bool) -> Self {
         let save_path = if meta.save_path.is_empty() {
             s.output_folder.to_string_lossy().into_owned()
         } else {
             meta.save_path.clone()
         };
+        // The folder it's really in now: the incomplete folder while it's there.
+        let actual = if meta.download_path.is_empty() { &save_path } else { &meta.download_path };
         let output = s.output_folder.to_string_lossy().into_owned();
-        let root_path = if output != save_path { output } else { String::new() };
+        let root_path = if !swarmy_engine::same_dir(&s.output_folder, std::path::Path::new(actual)) {
+            output
+        } else {
+            String::new()
+        };
+        let moving = match s.moving {
+            Some(m) => Some(MoveView {
+                progress: if m.total_bytes == 0 { 1.0 } else { m.done_bytes as f64 / m.total_bytes as f64 },
+                queued: false,
+            }),
+            None if waiting_to_move => Some(MoveView { progress: 0.0, queued: true }),
+            None => None,
+        };
         let content_path = s.content_path.to_string_lossy().into_owned();
         let ratio = if s.downloaded_bytes > 0 {
             s.uploaded_bytes as f64 / s.downloaded_bytes as f64
@@ -151,6 +184,10 @@ impl TorrentView {
             has_metadata: s.has_metadata,
             queued: meta.queued && s.state == TorrentState::Paused,
             error: s.error,
+            download_path: meta.download_path.clone(),
+            auto_managed: meta.auto_managed,
+            moving,
+            move_error: meta.move_error.clone(),
         }
     }
 }
@@ -228,6 +265,26 @@ impl AppState {
             a.retain(|h, _| statuses.iter().any(|s| &s.info_hash == h));
             a.clone()
         };
+        // Finished in the incomplete folder: on to the save path. (A failed
+        // move waits for the user rather than retrying every second.)
+        let mut busy = self.mover.busy();
+        let due: Vec<String> = self.store.read(|d| {
+            statuses
+                .iter()
+                .filter(|s| s.finished && s.moving.is_none() && !busy.contains(&s.info_hash))
+                .filter(|s| {
+                    d.torrents
+                        .get(&s.info_hash)
+                        .is_some_and(|m| !m.download_path.is_empty() && m.move_error.is_none())
+                })
+                .map(|s| s.info_hash.clone())
+                .collect()
+        });
+        for h in due {
+            self.mover.request(&h, None);
+            busy.insert(h);
+        }
+
         let torrents: Vec<TorrentView> = self.store.read(|d| {
             statuses
                 .into_iter()
@@ -237,7 +294,8 @@ impl AppState {
                         .get(&s.info_hash)
                         .copied()
                         .unwrap_or_else(|| meta.completed_on.unwrap_or(meta.added_on));
-                    TorrentView::new(s, &meta, last)
+                    let waiting = busy.contains(&s.info_hash);
+                    TorrentView::new(s, &meta, last, waiting)
                 })
                 .collect()
         });
@@ -297,6 +355,19 @@ impl AppState {
         } else {
             PathBuf::from(configured.trim())
         }
+    }
+
+    /// Where torrents download before moving to their save path, if that's on.
+    /// Categories get their own subfolder, so same-named downloads can't clash.
+    pub fn incomplete_dir(&self, category: &str) -> Option<PathBuf> {
+        let (on, dir) = self
+            .store
+            .read(|d| (d.settings.downloads.use_incomplete_dir, d.settings.downloads.incomplete_dir.clone()));
+        if !on {
+            return None;
+        }
+        let base = if dir.trim().is_empty() { self.download_dir().join("incomplete") } else { PathBuf::from(dir.trim()) };
+        Some(if category.is_empty() { base } else { base.join(category) })
     }
 
     /// Save path for a new torrent: explicit > category path > download dir.

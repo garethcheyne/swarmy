@@ -36,6 +36,7 @@ pub fn router(state: Shared) -> Router<Shared> {
         .route("/torrents/pause", post(pause))
         .route("/torrents/resume", post(resume))
         .route("/torrents/delete", post(delete))
+        .route("/torrents/move", post(move_torrents))
         .route("/torrents/{hash}/files", get(files))
         .route("/torrents/{hash}/pieces", get(pieces))
         .route("/push", get(push_info))
@@ -274,6 +275,10 @@ async fn put_settings(
     {
         return Err(ApiError::bad_request("With queueing on, allow at least one active torrent."));
     }
+    let incomplete = new.downloads.incomplete_dir.trim();
+    if !incomplete.is_empty() && !std::path::Path::new(incomplete).is_absolute() {
+        return Err(ApiError::bad_request("Give the incomplete folder's full path, like /data/incomplete."));
+    }
     if new.speed.schedule.enabled && new.speed.schedule.from == new.speed.schedule.to {
         return Err(ApiError::bad_request("The schedule's start and end times are the same."));
     }
@@ -403,6 +408,9 @@ pub struct AddRequest {
     pub category: String,
     pub tags: Vec<String>,
     pub save_path: Option<String>,
+    /// qBittorrent's `autoTMM`: follow the category's folder (ignoring
+    /// `save_path`). None = automatic unless a folder was given.
+    pub auto_tmm: Option<bool>,
     /// None = follow Settings > Downloads > add paused.
     pub paused: Option<bool>,
     pub layout: ContentLayout,
@@ -431,6 +439,7 @@ impl AddRequest {
                     .map(String::from),
             ),
             "savepath" => self.save_path = Some(text.to_owned()),
+            "autoTMM" => self.auto_tmm = Some(text.trim() == "true"),
             "paused" | "stopped" => self.paused = Some(text.trim() == "true"),
             "contentLayout" => {
                 self.layout = match text.trim() {
@@ -488,7 +497,12 @@ pub async fn add_all(state: &Shared, req: AddRequest) -> ApiResult<Vec<Added>> {
     if req.urls.is_empty() && req.files.is_empty() {
         return Err(ApiError::bad_request("no torrents or URLs given"));
     }
-    let save_path = state.resolve_save_path(req.save_path.as_deref(), &req.category);
+    let auto = req
+        .auto_tmm
+        .unwrap_or_else(|| req.save_path.as_deref().is_none_or(|p| p.trim().is_empty()));
+    let save_path = state.resolve_save_path(if auto { None } else { req.save_path.as_deref() }, &req.category);
+    // With an incomplete folder, it downloads there and moves when complete.
+    let incomplete = state.incomplete_dir(&req.category);
     let paused = req
         .paused
         .unwrap_or_else(|| state.store.read(|d| d.settings.downloads.add_paused));
@@ -508,7 +522,7 @@ pub async fn add_all(state: &Shared, req: AddRequest) -> ApiResult<Vec<Added>> {
             .add(
                 source,
                 AddOptions {
-                    save_path: Some(save_path.clone()),
+                    save_path: Some(incomplete.clone().unwrap_or_else(|| save_path.clone())),
                     paused,
                     layout: req.layout,
                 },
@@ -537,6 +551,11 @@ pub async fn add_all(state: &Shared, req: AddRequest) -> ApiResult<Vec<Added>> {
                         tags: req.tags.iter().cloned().collect(),
                         added_on: now_unix(),
                         save_path: save_path.to_string_lossy().into_owned(),
+                        download_path: incomplete
+                            .as_ref()
+                            .map(|p| p.to_string_lossy().into_owned())
+                            .unwrap_or_default(),
+                        auto_managed: auto,
                         ratio_limit: req.ratio_limit.unwrap_or(-2.0),
                         seeding_time_limit: req.seeding_time_limit.unwrap_or(-2),
                         inactive_seeding_time_limit: req.inactive_seeding_time_limit.unwrap_or(-2),
@@ -618,6 +637,19 @@ async fn delete(State(state): State<Shared>, Json(req): Json<Hashes>) -> ApiResu
     Ok(StatusCode::NO_CONTENT)
 }
 
+#[derive(Deserialize)]
+struct MoveReq {
+    hashes: Vec<String>,
+    /// The new folder; absent = back under each torrent's category folder.
+    location: Option<String>,
+}
+
+async fn move_torrents(State(state): State<Shared>, Json(req): Json<MoveReq>) -> ApiResult<StatusCode> {
+    let location = req.location.as_deref().map(str::trim).filter(|l| !l.is_empty()).map(std::path::Path::new);
+    crate::mover::move_by_hand(&state, &req.hashes, location).map_err(|e| ApiError::bad_request(e.to_string()))?;
+    Ok(StatusCode::ACCEPTED)
+}
+
 async fn files(State(state): State<Shared>, Path(hash): Path<String>) -> ApiResult<Json<Vec<FileEntry>>> {
     Ok(Json(state.engine.files(&hash)?))
 }
@@ -633,6 +665,9 @@ async fn set_meta(
     Path(hash): Path<String>,
     Json(req): Json<MetaReq>,
 ) -> ApiResult<StatusCode> {
+    let category_changed = req.category.as_ref().is_some_and(|c| {
+        state.store.read(|d| d.torrents.get(&hash).is_some_and(|m| &m.category != c))
+    });
     let found = state.store.update(|d| {
         if let Some(c) = &req.category
             && !c.is_empty()
@@ -653,11 +688,13 @@ async fn set_meta(
         }
         true
     })?;
-    if found {
-        Ok(StatusCode::NO_CONTENT)
-    } else {
-        Err(ApiError(StatusCode::NOT_FOUND, "torrent not found".into()))
+    if !found {
+        return Err(ApiError(StatusCode::NOT_FOUND, "torrent not found".into()));
     }
+    if category_changed {
+        crate::mover::category_changed(&state, std::slice::from_ref(&hash));
+    }
+    Ok(StatusCode::NO_CONTENT)
 }
 
 // ---------- categories ----------
@@ -674,7 +711,13 @@ async fn put_category(
     if name.trim().is_empty() {
         return Err(ApiError::bad_request("category name is empty"));
     }
-    state.store.update(|d| d.categories.insert(name, cat))?;
+    let moved = state.store.update(|d| {
+        let old = d.categories.insert(name.clone(), cat.clone());
+        old.is_none_or(|o| o.save_path != cat.save_path)
+    })?;
+    if moved {
+        crate::mover::category_folder_changed(&state, &name);
+    }
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -683,7 +726,9 @@ async fn delete_category(State(state): State<Shared>, Path(name): Path<String>) 
         d.categories.remove(&name);
         for m in d.torrents.values_mut() {
             if m.category == name {
+                // Removing a category never moves files; they stay put.
                 m.category.clear();
+                m.auto_managed = false;
             }
         }
     })?;

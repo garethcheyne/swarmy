@@ -12,7 +12,7 @@ use std::{
 use async_trait::async_trait;
 
 use crate::{
-    AddOptions, AddOutcome, AddSource, Engine, FileEntry, NetworkInfo, PeerEntry, PieceMap, TorrentState,
+    AddOptions, AddOutcome, AddSource, Engine, FileEntry, MoveProgress, NetworkInfo, PeerEntry, PieceMap, TorrentState,
     TorrentStatus,
 };
 
@@ -60,11 +60,14 @@ struct SimTorrent {
     output_folder: PathBuf,
     files: Vec<(String, f64)>,
     error: Option<String>,
+    /// A move in progress: (destination, bytes done).
+    moving: Option<(PathBuf, f64)>,
 }
 
 impl SimTorrent {
     fn status(&self) -> TorrentStatus {
         let state = match self.phase {
+            _ if self.moving.is_some() => TorrentState::Moving,
             Phase::Metadata { .. } | Phase::Checking { .. } => TorrentState::Initializing,
             Phase::Downloading => TorrentState::Downloading,
             Phase::Seeding => TorrentState::Seeding,
@@ -94,10 +97,27 @@ impl SimTorrent {
                 _ => self.output_folder.join(&self.name),
             },
             error: self.error.clone(),
+            moving: self.moving.as_ref().map(|(_, done)| MoveProgress {
+                done_bytes: *done as u64,
+                total_bytes: self.downloaded as u64,
+            }),
         }
     }
 
     fn tick(&mut self) {
+        // Moves take a few seconds whatever the size, so the demo shows one.
+        if let Some((to, done)) = &mut self.moving {
+            *done += (self.downloaded / 6.0).max(200.0 * MIB);
+            self.dl = 0.0;
+            self.ul = 0.0;
+            self.peers = 0;
+            self.seeds = 0;
+            if *done >= self.downloaded {
+                self.output_folder = to.clone();
+                self.moving = None;
+            }
+            return;
+        }
         let jitter = |v: f64, amount: f64| v * (1.0 + rand::random_range(-amount..amount));
         match self.phase {
             Phase::Metadata { left } => {
@@ -329,6 +349,7 @@ impl SimEngine {
                 files: files_for(s.name, total),
                 error: (s.phase == Error)
                     .then(|| "Disk write failed: no space left on device (os error 28)".into()),
+                moving: None,
             });
             seeds.push(DemoSeed {
                 info_hash: hash,
@@ -437,6 +458,7 @@ impl Engine for SimEngine {
             stall: 0,
             output_folder: opts.save_path.unwrap_or_else(|| self.download_dir.clone()),
             error: None,
+            moving: None,
         });
         Ok(AddOutcome { info_hash: hash, already_existed: false })
     }
@@ -581,6 +603,23 @@ impl Engine for SimEngine {
         ts.retain(|t| t.hash != hash);
         anyhow::ensure!(ts.len() < before, "torrent {hash} not found");
         Ok(())
+    }
+
+    async fn relocate(&self, hash: &str, to: PathBuf) -> anyhow::Result<()> {
+        self.with(hash, |t| {
+            anyhow::ensure!(t.moving.is_none(), "This torrent is already being moved.");
+            if !crate::same_dir(&t.output_folder, &to) {
+                t.moving = Some((to, 0.0));
+            }
+            Ok(())
+        })??;
+        // Wait for the ticker to finish it (or for the torrent to be removed).
+        loop {
+            tokio::time::sleep(Duration::from_millis(250)).await;
+            if self.with(hash, |t| t.moving.is_none()).unwrap_or(true) {
+                return Ok(());
+            }
+        }
     }
 
     fn set_rate_limits(&self, download: Option<u32>, upload: Option<u32>) {

@@ -262,7 +262,7 @@ export function SettingsPage({ onSignedOut }: { onSignedOut: () => void }) {
           ) : (
             <>
               {section === "downloads" && (
-                <Section title="Downloads" description="Where new torrents go, and how they start.">
+                <Section title="Downloads" description="Where torrents go, how they start, and when their files move.">
                   <FieldGroup>
                     <Field data-disabled={locked("downloads.default_save_path") || undefined}>
                       <HelpLabel htmlFor="save-path" help="save_path">
@@ -287,6 +287,37 @@ export function SettingsPage({ onSignedOut }: { onSignedOut: () => void }) {
                       description="New torrents wait until you start them. Sonarr and Radarr follow this too."
                       checked={draft.downloads.add_paused}
                       onChange={(v) => set("downloads", { add_paused: v })}
+                    />
+                    <SwitchRow
+                      id="use-incomplete" help="incomplete_dir"
+                      label="Keep unfinished downloads in a separate folder"
+                      description="Torrents download there and move to their save folder when complete, so nothing half-finished shows up in your library."
+                      checked={draft.downloads.use_incomplete_dir}
+                      onChange={(v) => set("downloads", { use_incomplete_dir: v })}
+                    />
+                    {draft.downloads.use_incomplete_dir && (
+                      <Field>
+                        <HelpLabel htmlFor="incomplete-dir" help="incomplete_dir">
+                          Unfinished downloads folder
+                        </HelpLabel>
+                        <Input
+                          id="incomplete-dir"
+                          className="data"
+                          placeholder={`${server.effective_download_dir}/incomplete`}
+                          value={draft.downloads.incomplete_dir}
+                          onChange={(e) => set("downloads", { incomplete_dir: e.target.value })}
+                        />
+                        <FieldDescription>
+                          Leave empty to use an "incomplete" folder inside the save folder. Only affects torrents added from now on.
+                        </FieldDescription>
+                      </Field>
+                    )}
+                    <SwitchRow
+                      id="category-moves" help="category_moves"
+                      label="Move files when the category changes"
+                      description="Changing a torrent's category, or a category's folder, moves its files to match. Torrents you've moved by hand stay where you put them."
+                      checked={draft.downloads.category_moves}
+                      onChange={(v) => set("downloads", { category_moves: v })}
                     />
                   </FieldGroup>
                 </Section>

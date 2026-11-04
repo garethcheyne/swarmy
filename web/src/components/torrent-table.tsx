@@ -4,6 +4,7 @@ import {
   ArrowUpDownIcon,
   ArrowUpIcon,
   CopyIcon,
+  FolderInputIcon,
   PauseIcon,
   PlayIcon,
   Trash2Icon,
@@ -49,6 +50,8 @@ export function sortTorrents(list: Torrent[], sort: Sort): Torrent[] {
 
 /** Short state label, matching what the status badge would say. */
 export function stateLabel(t: Torrent): string {
+  if (t.moving) return t.moving.queued ? "waiting to move" : `moving, ${Math.floor(t.moving.progress * 100)}%`
+  if (t.move_error) return "couldn't move"
   if (t.state === "error") return t.error ? `error: ${t.error}` : "error"
   if (t.state === "initializing") return t.has_metadata ? "checking" : "fetching metadata"
   if (t.queued) return "queued"
@@ -89,6 +92,7 @@ interface Props {
   onPause: (hashes: string[]) => void
   onResume: (hashes: string[]) => void
   onDelete: (hashes: string[]) => void
+  onMove: (hashes: string[]) => void
 }
 
 export function TorrentTable({
@@ -102,6 +106,7 @@ export function TorrentTable({
   onPause,
   onResume,
   onDelete,
+  onMove,
 }: Props) {
   const allSelected = rows.length > 0 && rows.every((t) => selected.has(t.hash))
   const someSelected = !allSelected && rows.some((t) => selected.has(t.hash))
@@ -152,6 +157,7 @@ export function TorrentTable({
         onPause={onPause}
         onResume={onResume}
         onDelete={onDelete}
+        onMove={onMove}
       />
     </div>
   )
@@ -167,6 +173,7 @@ function TableBody({
   onPause,
   onResume,
   onDelete,
+  onMove,
 }: {
   rows: Torrent[]
   focused: string | null
@@ -177,6 +184,7 @@ function TableBody({
   onPause: (h: string[]) => void
   onResume: (h: string[]) => void
   onDelete: (h: string[]) => void
+  onMove: (h: string[]) => void
 }) {
   const items = rows
   const [menuFor, setMenuFor] = useState<string | null>(null)
@@ -213,7 +221,7 @@ function TableBody({
               </span>
               <span role="cell" className="flex min-w-0 flex-col">
                 <span className="truncate font-medium" title={t.name}>{t.name}</span>
-                <span className={cn("truncate text-[11px] text-muted-foreground", t.state === "error" && "text-destructive")}>
+                <span className={cn("truncate text-[11px] text-muted-foreground", (t.state === "error" || (t.move_error && !t.moving)) && "text-destructive")}>
                   {t.category || "no category"}, {label}
                 </span>
               </span>
@@ -246,6 +254,10 @@ function TableBody({
               </ContextMenuGroup>
               <ContextMenuSeparator />
               <ContextMenuGroup>
+                <ContextMenuItem onClick={() => onMove(targets(t.hash))}>
+                  <FolderInputIcon />
+                  Move…
+                </ContextMenuItem>
                 <ContextMenuItem onClick={() => navigator.clipboard.writeText(t.hash).catch(() => {})}>
                   <CopyIcon />
                   Copy info-hash

@@ -5,6 +5,7 @@ mod auth;
 mod changelog;
 mod config;
 mod geo;
+mod mover;
 mod policy;
 mod push;
 mod peermap;
@@ -137,6 +138,7 @@ async fn main() -> anyhow::Result<()> {
         peer_rates: Default::default(),
         usenet,
         demo_usenet: Default::default(),
+        mover: Default::default(),
         snapshot: snap_rx,
     });
     // The peer-location database: fetched on first start, then kept current.
@@ -148,6 +150,7 @@ async fn main() -> anyhow::Result<()> {
     }
     tokio::spawn(state::run_ticker(state.clone(), snap_tx));
     usenet::start(&state);
+    tokio::spawn(mover::run(state.clone()));
     tokio::spawn(stats::run_system_sampler(stats));
 
     let app = Router::new()

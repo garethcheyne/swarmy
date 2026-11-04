@@ -65,8 +65,11 @@ against Sonarr's own qBittorrent client code: qBittorrent 5 state strings, `save
 `root_path`, per-torrent share limits (`ratioLimit`, `seedingTimeLimit`, `inactiveSeedingTimeLimit`),
 categories, tags, queue priority and force start. Magnet adds return immediately while metadata resolves.
 
-Not yet implemented: `sync/maindata` (used by third-party web UIs), trackers/peers detail, `setLocation`,
-file priorities.
+Moves work the qBittorrent way too: `setLocation`, `setAutoManagement` (torrents follow their category's
+folder, so Sonarr's post-import category moves them), an incomplete folder (`temp_path`), and the `moving`
+state while files move, which Sonarr treats as still downloading.
+
+Not yet implemented: `sync/maindata` (used by third-party web UIs), trackers/peers detail, file priorities.
 
 ## Development
 

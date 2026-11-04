@@ -58,6 +58,17 @@ pub struct TorrentMeta {
     /// Queue order; lower starts first. 0 = by date added.
     #[serde(default)]
     pub priority: i64,
+    /// While downloading in the incomplete folder: the folder it's in there.
+    /// Empty once the torrent is in its save path.
+    #[serde(default)]
+    pub download_path: String,
+    /// Follows its category's folder (qBittorrent's Automatic Torrent
+    /// Management): set when added without a folder of its own.
+    #[serde(default)]
+    pub auto_managed: bool,
+    /// Why the last move failed, until a move succeeds.
+    #[serde(default)]
+    pub move_error: Option<String>,
 }
 
 fn use_global() -> i64 {
@@ -81,6 +92,9 @@ impl Default for TorrentMeta {
             inactive_seeding_time_limit: -2,
             force_start: false,
             priority: 0,
+            download_path: String::new(),
+            auto_managed: false,
+            move_error: None,
         }
     }
 }
@@ -170,12 +184,31 @@ impl Default for Settings {
     }
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct DownloadSettings {
     /// Empty = the --download-dir / platform default.
     pub default_save_path: String,
     pub add_paused: bool,
+    /// Download into a separate folder and move to the save path when complete.
+    pub use_incomplete_dir: bool,
+    /// Empty = "<download folder>/incomplete".
+    pub incomplete_dir: String,
+    /// Changing a torrent's category, or a category's folder, moves the files
+    /// of torrents that follow their category.
+    pub category_moves: bool,
+}
+
+impl Default for DownloadSettings {
+    fn default() -> Self {
+        Self {
+            default_save_path: String::new(),
+            add_paused: false,
+            use_incomplete_dir: false,
+            incomplete_dir: String::new(),
+            category_moves: true,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

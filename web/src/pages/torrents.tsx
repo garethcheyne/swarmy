@@ -1,11 +1,12 @@
-import { useEffect, useMemo, useState } from "react"
-import { PauseIcon, PlayIcon, SearchIcon, Trash2Icon, XIcon } from "lucide-react"
+import { useCallback, useEffect, useMemo, useState } from "react"
+import { FolderInputIcon, PauseIcon, PlayIcon, SearchIcon, Trash2Icon, XIcon } from "lucide-react"
 
 import type { Torrent } from "@/lib/api"
 import { matchesFilter, type Filter } from "@/lib/filters"
 import { useMediaQuery } from "@/hooks/use-media"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { Inspector } from "@/components/inspector"
+import { MoveDialog } from "@/components/move-dialog"
 import { TorrentList } from "@/components/torrent-list"
 import { sortTorrents, TorrentTable, type Sort } from "@/components/torrent-table"
 import { Button } from "@/components/ui/button"
@@ -78,6 +79,16 @@ export function TorrentsPage({
   )
   const focusedTorrent = torrents.find((t) => t.hash === focused)
 
+  const [moveTargets, setMoveTargets] = useState<string[] | null>(null)
+  const [moveKey, setMoveKey] = useState(0)
+  const onMove = useCallback((hashes: string[]) => {
+    if (!hashes.length) return
+    setMoveTargets(hashes)
+    setMoveKey((k) => k + 1)
+  }, [])
+  const moving = useMemo(() => torrents.filter((t) => moveTargets?.includes(t.hash)), [torrents, moveTargets])
+  const folders = useMemo(() => [...new Set(torrents.map((t) => t.save_path).filter(Boolean))].sort(), [torrents])
+
   // Keyboard: j/k or arrows move, space pauses/resumes, Delete deletes, Esc clears.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -104,13 +115,16 @@ export function TorrentsPage({
       } else if ((e.key === "Delete" || e.key === "Backspace") && targets.length) {
         e.preventDefault()
         onDelete(targets)
+      } else if (e.key === "m" && targets.length) {
+        e.preventDefault()
+        onMove(targets)
       } else if (e.key === "Escape") {
         setSelected(new Set())
       }
     }
     window.addEventListener("keydown", onKey)
     return () => window.removeEventListener("keydown", onKey)
-  }, [rows, focused, focusedTorrent, targets, onFocus, onPause, onResume, onDelete])
+  }, [rows, focused, focusedTorrent, targets, onFocus, onPause, onResume, onDelete, onMove])
 
   const inspector = (
     <Inspector
@@ -119,6 +133,7 @@ export function TorrentsPage({
       onPause={onPause}
       onResume={onResume}
       onDelete={onDelete}
+      onMove={onMove}
     />
   )
 
@@ -152,6 +167,10 @@ export function TorrentsPage({
                 <Button size="sm" variant="outline" onClick={() => onPause([...selected])}>
                   <PauseIcon data-icon="inline-start" />
                   <span className="hidden sm:inline">Pause</span>
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => onMove([...selected])}>
+                  <FolderInputIcon data-icon="inline-start" />
+                  <span className="hidden sm:inline">Move</span>
                 </Button>
                 <Button size="sm" variant="outline" className="text-destructive" onClick={() => onDelete([...selected])}>
                   <Trash2Icon data-icon="inline-start" />
@@ -205,6 +224,7 @@ export function TorrentsPage({
               onPause={onPause}
               onResume={onResume}
               onDelete={onDelete}
+              onMove={onMove}
             />
           )}
         </div>
@@ -227,6 +247,14 @@ export function TorrentsPage({
           {inspector}
         </SheetContent>
       </Sheet>
+
+      <MoveDialog
+        key={moveKey}
+        open={moveTargets !== null && moving.length > 0}
+        onOpenChange={(o) => !o && setMoveTargets(null)}
+        targets={moving}
+        folders={folders}
+      />
     </div>
   )
 }

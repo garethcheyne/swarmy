@@ -21,6 +21,7 @@ import { toast } from "sonner"
 import { api, UnauthorizedError, type Category, type ServerInfo, type Settings, type SettingsResponse } from "@/lib/api"
 import { usePoll } from "@/lib/use-poll"
 import { cn } from "@/lib/utils"
+import { ChangelogPanel } from "@/components/release-notes"
 import { AppearancePanel } from "@/components/appearance-dialog"
 import { IntegrationsSection } from "@/components/integrations-section"
 import { NotificationsPanel } from "@/components/notifications-dialog"
@@ -861,15 +862,23 @@ function About({ server }: { server: SettingsResponse }) {
     ["Network interface", info?.network.bind_interface ?? "Any"],
   ]
   return (
-    <Section title="About">
-      <dl className="grid grid-cols-[10rem_minmax(0,1fr)] gap-x-4 gap-y-2 text-[13px]">
-        {rows.map(([k, v]) => (
-          <div key={k} className="contents">
-            <dt className="text-muted-foreground">{k}</dt>
-            <dd className="m-0">{v}</dd>
-          </div>
-        ))}
-      </dl>
-    </Section>
+    <div className="flex flex-col gap-10">
+      <Section title="About">
+        <dl className="grid grid-cols-[10rem_minmax(0,1fr)] gap-x-4 gap-y-2 text-[13px]">
+          {rows.map(([k, v]) => (
+            <div key={k} className="contents">
+              <dt className="text-muted-foreground">{k}</dt>
+              <dd className="m-0">{v}</dd>
+            </div>
+          ))}
+        </dl>
+      </Section>
+      <Section
+        title="Release notes"
+        description="What each version of Swarmy brought. The notes are built into Swarmy, so they always match the version you're running."
+      >
+        <ChangelogPanel />
+      </Section>
+    </div>
   )
 }

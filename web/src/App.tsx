@@ -8,12 +8,14 @@ import { usePalette } from "@/lib/palette"
 import { openFloating, pipSupported, syncTheme } from "@/lib/pip"
 import { hashParam, navigate, useRoute } from "@/lib/route"
 import { usePoll } from "@/lib/use-poll"
+import { compareVersions, markSeen, seenVersion } from "@/lib/version"
 import { AddTorrentDialog, type AddPrefill } from "@/components/add-torrent-dialog"
 import { AppearanceDialog } from "@/components/appearance-dialog"
 import { DeleteDialog } from "@/components/delete-dialog"
 import { Login } from "@/components/login"
 import { MiniView } from "@/components/mini-view"
 import { NotificationsDialog } from "@/components/notifications-dialog"
+import { WhatsNewDialog } from "@/components/release-notes"
 import { CommandPalette } from "@/components/shell/command-palette"
 import { Nav } from "@/components/shell/nav"
 import { StatusBar } from "@/components/shell/status-bar"
@@ -84,6 +86,23 @@ function Shell({ onSignedOut }: { onSignedOut: () => void }) {
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [deleteKey, setDeleteKey] = useState(0)
   const [deleteTargets, setDeleteTargets] = useState<string[]>([])
+
+  // "What's new": shown once after an upgrade (this browser last saw an
+  // older version), or opened by hand from the status bar, palette or About.
+  const [seen, setSeen] = useState(seenVersion)
+  const [notesOpen, setNotesOpen] = useState(false)
+  const upgradedFrom = info && seen && compareVersions(info.version, seen) > 0 ? seen : null
+  useEffect(() => {
+    // First visit: nothing to announce, just remember where we started.
+    if (info && seenVersion() === null) markSeen(info.version)
+  }, [info])
+  const closeNotes = () => {
+    setNotesOpen(false)
+    if (info) {
+      markSeen(info.version)
+      setSeen(info.version)
+    }
+  }
 
   // Categories can be created implicitly (by adds, Sonarr, …), so refresh
   // whenever a torrent shows up with one we don't know.
@@ -330,7 +349,7 @@ function Shell({ onSignedOut }: { onSignedOut: () => void }) {
           )}
         </div>
       </div>
-      <StatusBar info={info} stats={snapshot?.stats} />
+      <StatusBar info={info} stats={snapshot?.stats} onVersion={() => setNotesOpen(true)} />
       <TabBar route={route} onAdd={() => openAdd()} onMenu={() => setMenuOpen(true)} />
 
       <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
@@ -354,11 +373,17 @@ function Shell({ onSignedOut }: { onSignedOut: () => void }) {
         onToggleTheme={toggleTheme}
         onNotifications={openNotifications}
         onAppearance={() => setAppearanceOpen(true)}
+        onWhatsNew={() => setNotesOpen(true)}
         onFloat={floatMini}
         onFilter={setFilter}
         onSelect={setFocused}
       />
       <AppearanceDialog open={appearanceOpen} onOpenChange={setAppearanceOpen} />
+      <WhatsNewDialog
+        open={notesOpen || upgradedFrom !== null}
+        since={notesOpen ? null : upgradedFrom}
+        onOpenChange={(o) => (o ? setNotesOpen(true) : closeNotes())}
+      />
       <NotificationsDialog key={notifyKey} open={notifyOpen} onOpenChange={setNotifyOpen} />
       <AddTorrentDialog key={addKey} open={addOpen} onOpenChange={setAddOpen} categories={categories} prefill={addPrefill} />
       <DeleteDialog

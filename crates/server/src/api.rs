@@ -52,6 +52,7 @@ pub fn router(state: Shared) -> Router<Shared> {
         .route("/stats/summary", get(stats_summary))
         .route("/stats/events", get(stats_events))
         .route("/info", get(info))
+        .route("/changelog", get(changelog))
         .route_layer(middleware::from_fn_with_state(state, auth::require_session));
 
     Router::new()
@@ -669,6 +670,13 @@ async fn info(State(state): State<Shared>) -> Json<serde_json::Value> {
         "demo": state.demo,
         "download_dir": state.download_dir(),
         "network": state.engine.network(),
+    }))
+}
+
+async fn changelog() -> Json<serde_json::Value> {
+    Json(serde_json::json!({
+        "version": env!("CARGO_PKG_VERSION"),
+        "releases": crate::changelog::releases(),
     }))
 }
 

@@ -10,6 +10,7 @@ import {
   PlayIcon,
   PlusIcon,
   SettingsIcon,
+  SparklesIcon,
 } from "lucide-react"
 
 import type { Torrent } from "@/lib/api"
@@ -39,6 +40,7 @@ interface Props {
   onToggleTheme: () => void
   onNotifications: () => void
   onAppearance: () => void
+  onWhatsNew: () => void
   onFloat: () => void
   onFilter: (f: Filter) => void
   onSelect: (hash: string) => void
@@ -65,6 +67,7 @@ export function CommandPalette({
   onToggleTheme,
   onNotifications,
   onAppearance,
+  onWhatsNew,
   onFloat,
   onFilter,
   onSelect,
@@ -114,6 +117,10 @@ export function CommandPalette({
             <CommandItem onSelect={run(onNotifications)}>
               <BellIcon />
               Notification settings
+            </CommandItem>
+            <CommandItem onSelect={run(onWhatsNew)}>
+              <SparklesIcon />
+              What's new in Swarmy
             </CommandItem>
           </CommandGroup>
           <CommandSeparator />

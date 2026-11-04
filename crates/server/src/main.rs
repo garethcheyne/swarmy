@@ -2,6 +2,7 @@
 
 mod api;
 mod auth;
+mod changelog;
 mod config;
 mod policy;
 mod push;

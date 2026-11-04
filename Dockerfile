@@ -19,7 +19,7 @@ RUN pnpm build
 FROM rust:1-bookworm AS build
 WORKDIR /src
 # Vendored OpenSSL needs perl + make (already in the image); nothing else to add.
-COPY Cargo.toml Cargo.lock ./
+COPY Cargo.toml Cargo.lock CHANGELOG.md ./
 COPY crates/ crates/
 # The server embeds the built UI from ../../web/dist at compile time.
 COPY --from=web /src/web/dist web/dist

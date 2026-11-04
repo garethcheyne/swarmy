@@ -131,6 +131,24 @@ export interface ServerInfo {
   network: { listen_port: number | null; dht_nodes: number | null; bind_interface: string | null }
 }
 
+export interface ChangelogSection {
+  title: string
+  items: string[]
+}
+
+export interface Release {
+  version: string
+  /** ISO date, or null while unreleased. */
+  date: string | null
+  summary: string
+  sections: ChangelogSection[]
+}
+
+export interface Changelog {
+  version: string
+  releases: Release[]
+}
+
 export type SeedAction = "pause" | "remove" | "remove_with_files"
 
 export interface Settings {
@@ -259,6 +277,7 @@ export const api = {
     request<void>(`/torrents/${hash}/meta`, { ...json(meta), method: "PUT" }),
 
   info: () => request<ServerInfo>("/info"),
+  changelog: () => request<Changelog>("/changelog"),
   settings: () => request<SettingsResponse>("/settings"),
   saveSettings: (s: Settings) =>
     request<{ restart_needed: boolean }>("/settings", { ...json(s), method: "PUT" }),

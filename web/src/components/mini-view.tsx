@@ -6,6 +6,7 @@ import { formatEta, formatPercent, formatSpeed } from "@/lib/format"
 import { cn } from "@/lib/utils"
 import { barColor, stateLabel } from "@/components/torrent-table"
 import { Logo } from "@/components/logo"
+import { LiveSpark } from "@/components/charts"
 
 interface Props {
   snapshot: Snapshot | null
@@ -18,19 +19,7 @@ interface Props {
 }
 
 function Spark({ history }: { history: LiveSample[] }) {
-  const { dl, ul } = useMemo(() => {
-    const pts = history.slice(-180)
-    const max = Math.max(1, ...pts.map((p) => Math.max(p.dl, p.ul)))
-    const line = (k: "dl" | "ul") =>
-      pts.map((p, i) => `${((i / Math.max(1, pts.length - 1)) * 300).toFixed(1)},${(30 - (p[k] / max) * 27).toFixed(1)}`).join(" ")
-    return { dl: line("dl"), ul: line("ul") }
-  }, [history])
-  return (
-    <svg viewBox="0 0 300 32" preserveAspectRatio="none" className="h-8 w-full" aria-hidden>
-      <polyline points={dl} fill="none" stroke="var(--down)" strokeWidth="1.5" vectorEffect="non-scaling-stroke" />
-      <polyline points={ul} fill="none" stroke="var(--up)" strokeWidth="1.5" vectorEffect="non-scaling-stroke" />
-    </svg>
-  )
+  return <LiveSpark points={history.slice(-180)} width={300} height={32} stretch className="h-8 w-full" />
 }
 
 /** A compact, glanceable Swarmy: for a small window or a floating picture-in-picture. */

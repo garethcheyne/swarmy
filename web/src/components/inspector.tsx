@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react"
+import { cn } from "@/lib/utils"
 import { CopyIcon, MousePointerClickIcon, PauseIcon, PlayIcon, Trash2Icon } from "lucide-react"
 import { toast } from "sonner"
 
@@ -40,26 +41,51 @@ function useLive<T>(key: string | null, fetcher: (k: string) => Promise<T>, ms: 
   return state.key === key ? state.data : null
 }
 
+const COLS = 36
+
+/**
+ * Pieces ripple in diagonally when the map first loads. After that, a cell
+ * that gains pieces flashes: its key includes its value, so it remounts with
+ * the flash class, while unchanged cells are left alone.
+ */
 function PieceGrid({ map }: { map: PieceMap | null }) {
   const cells = map?.buckets ?? Array.from({ length: BUCKETS }, () => -1)
+  const loaded = map != null
+  // Which cells gained pieces since the last map (derived during render, the
+  // React way of tracking a previous prop).
+  const [prev, setPrev] = useState(map)
+  const [fresh, setFresh] = useState<ReadonlySet<number>>(() => new Set())
+  if (map !== prev) {
+    const changed = new Set<number>()
+    if (prev && map) map.buckets.forEach((v, i) => v > (prev.buckets[i] ?? 0) && changed.add(i))
+    setPrev(map)
+    setFresh(changed)
+  }
+  const [entering, setEntering] = useState(true)
+  useEffect(() => {
+    if (!loaded) return
+    const id = setTimeout(() => setEntering(false), 1400)
+    return () => clearTimeout(id)
+  }, [loaded])
   return (
     <div
       role="img"
       aria-label={map ? `Piece map: ${map.have} of ${map.total} pieces` : "Loading piece map"}
       className="grid gap-[2px]"
-      style={{ gridTemplateColumns: "repeat(36, minmax(0, 1fr))" }}
+      style={{ gridTemplateColumns: `repeat(${COLS}, minmax(0, 1fr))` }}
     >
       {cells.map((v, i) => (
         <span
-          key={i}
-          className="h-2 rounded-[1px]"
+          key={`${i}:${v}`}
+          className={cn(
+            "h-2 rounded-[1px]",
+            loaded && entering && "piece-in",
+            !entering && fresh.has(i) && "piece-flash"
+          )}
           style={{
+            animationDelay: entering ? `${((i % COLS) + Math.floor(i / COLS)) * 14}ms` : undefined,
             background:
-              v < 0
-                ? "var(--muted)"
-                : v === 0
-                  ? "var(--muted)"
-                  : `color-mix(in oklab, var(--down) ${Math.max(35, v)}%, var(--muted))`,
+              v <= 0 ? "var(--muted)" : `color-mix(in oklab, var(--down) ${Math.max(35, v)}%, var(--muted))`,
           }}
         />
       ))}
@@ -132,7 +158,7 @@ export function Inspector({ torrent: t, categories, onPause, onResume, onDelete 
         <span className="text-[11px] text-muted-foreground">
           {map ? `Pieces: ${map.have.toLocaleString()} of ${map.total.toLocaleString()}` : t.has_metadata ? "Pieces" : "Waiting for metadata from peers"}
         </span>
-        <PieceGrid map={map} />
+        <PieceGrid key={t.hash} map={map} />
       </div>
 
       <dl className="grid grid-cols-[100px_minmax(0,1fr)] gap-x-3 gap-y-1.5">

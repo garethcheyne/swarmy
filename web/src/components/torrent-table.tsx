@@ -219,7 +219,10 @@ function TableBody({
               </span>
               <span role="cell" className="flex flex-col gap-[3px]">
                 <span className="h-1 overflow-hidden rounded-sm bg-muted">
-                  <span className="block h-full" style={{ width: `${Math.max(2, t.progress * 100)}%`, background: barColor(t) }} />
+                  <span
+                    className={cn("bar-fill block h-full", t.state === "downloading" && t.download_speed > 0 && "bar-live")}
+                    style={{ width: `${Math.max(2, t.progress * 100)}%`, background: barColor(t) }}
+                  />
                 </span>
                 <span className="data text-[11px] text-muted-foreground">{formatPercent(t.progress)}</span>
               </span>

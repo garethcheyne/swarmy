@@ -1,4 +1,3 @@
-import { useMemo } from "react"
 import {
   BellIcon,
   ChartColumnIcon,
@@ -15,6 +14,7 @@ import { PALETTES, usePalette } from "@/lib/palette"
 import { href, navigate, type Route } from "@/lib/route"
 import { cn } from "@/lib/utils"
 import { useTheme } from "@/components/theme-provider"
+import { LiveSpark } from "@/components/charts"
 
 const VIEWS: { value: StatusFilter; label: string }[] = [
   { value: "all", label: "All" },
@@ -70,21 +70,7 @@ function NavItem({
 
 /** Download/upload over the last 10 minutes, as two thin lines. */
 function MiniThroughput({ history }: { history: LiveSample[] }) {
-  const { dl, ul } = useMemo(() => {
-    const pts = history.slice(-120)
-    const max = Math.max(1, ...pts.map((p) => Math.max(p.dl, p.ul)))
-    const line = (key: "dl" | "ul") =>
-      pts
-        .map((p, i) => `${((i / Math.max(1, pts.length - 1)) * 180).toFixed(1)},${(38 - (p[key] / max) * 34).toFixed(1)}`)
-        .join(" ")
-    return { dl: line("dl"), ul: line("ul") }
-  }, [history])
-  return (
-    <svg viewBox="0 0 180 40" className="h-10 w-full" aria-hidden>
-      <polyline points={dl} fill="none" stroke="var(--down)" strokeWidth="1.75" strokeLinejoin="round" />
-      <polyline points={ul} fill="none" stroke="var(--up)" strokeWidth="1.75" strokeLinejoin="round" />
-    </svg>
-  )
+  return <LiveSpark points={history.slice(-120)} width={180} height={40} className="h-10 w-full" />
 }
 
 export function Nav({

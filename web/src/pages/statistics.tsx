@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react"
+import { useMemo, useState, type ReactNode } from "react"
 
 import { api, type HistoryRange } from "@/lib/api"
 import {
@@ -11,6 +11,7 @@ import {
 } from "@/lib/format"
 import { usePoll } from "@/lib/use-poll"
 import {
+  CountUp,
   HourProfileChart,
   Legend,
   MiniChart,
@@ -102,21 +103,43 @@ export function StatisticsPage() {
 
       {summary && (
         <dl className="grid grid-cols-2 gap-x-8 gap-y-6 border-y py-6 md:grid-cols-3 xl:grid-cols-6">
-          <Figure label="Downloaded, all time" value={formatBytes(summary.all_time.dl_bytes)} />
-          <Figure label="Uploaded, all time" value={formatBytes(summary.all_time.ul_bytes)} />
+          <Figure
+            label="Downloaded, all time"
+            value={<CountUp value={summary.all_time.dl_bytes} format={formatBytes} />}
+          />
+          <Figure
+            label="Uploaded, all time"
+            value={<CountUp value={summary.all_time.ul_bytes} format={formatBytes} delay={80} />}
+          />
           <Figure
             label="Share ratio"
-            value={formatRatio(summary.all_time.ul_bytes, summary.all_time.dl_bytes)}
+            value={
+              summary.all_time.dl_bytes > 0 ? (
+                <CountUp
+                  value={summary.all_time.ul_bytes / summary.all_time.dl_bytes}
+                  format={(v) => formatRatio(v, 1)}
+                  delay={160}
+                />
+              ) : (
+                formatRatio(summary.all_time.ul_bytes, summary.all_time.dl_bytes)
+              )
+            }
           />
-          <Figure label="Fastest download" value={speed(summary.peak_dl)} />
+          <Figure label="Fastest download" value={<CountUp value={summary.peak_dl} format={speed} delay={240} />} />
           <Figure
             label="Finished"
-            value={String(summary.completed_total)}
+            value={<CountUp value={summary.completed_total} format={(v) => Math.round(v).toString()} delay={320} />}
             detail={`${summary.completed_7d} this week`}
           />
           <Figure
             label="Busiest day"
-            value={summary.busiest_day ? formatBytes(summary.busiest_day.dl_bytes) : "—"}
+            value={
+              summary.busiest_day ? (
+                <CountUp value={summary.busiest_day.dl_bytes} format={formatBytes} delay={400} />
+              ) : (
+                "—"
+              )
+            }
             detail={summary.busiest_day ? formatDay(summary.busiest_day.day, true) : undefined}
           />
         </dl>
@@ -139,7 +162,7 @@ export function StatisticsPage() {
           />
         </div>
         {history ? (
-          <ThroughputChart data={points} xFormat={xFormat} tipTitle={tipTitle} className="h-72" />
+          <ThroughputChart key={range} data={points} xFormat={xFormat} tipTitle={tipTitle} className="h-72" />
         ) : (
           <Skeleton className="h-72" />
         )}
@@ -155,6 +178,7 @@ export function StatisticsPage() {
         </div>
         <div className="grid gap-x-10 gap-y-8 md:grid-cols-2 xl:grid-cols-4">
           <MiniChart
+            key={range}
             title="Peers connected"
             current={last ? Math.round(last.peers).toString() : "—"}
             data={points}
@@ -163,6 +187,7 @@ export function StatisticsPage() {
             tipTitle={tipTitle}
           />
           <MiniChart
+            key={range}
             title="Active torrents"
             current={last ? last.active.toFixed(1) : "—"}
             data={points}
@@ -171,6 +196,7 @@ export function StatisticsPage() {
             tipTitle={tipTitle}
           />
           <MiniChart
+            key={range}
             title="Swarmy CPU"
             current={last ? `${last.cpu.toFixed(1)}%` : "—"}
             data={points}
@@ -179,6 +205,7 @@ export function StatisticsPage() {
             tipTitle={tipTitle}
           />
           <MiniChart
+            key={range}
             title="Swarmy memory"
             current={last ? formatBytes(last.mem) : "—"}
             data={points}
@@ -215,7 +242,7 @@ export function StatisticsPage() {
           <div className="flex flex-col gap-0.5">
             <h2 className="text-[15px] font-semibold">Time of day</h2>
             <p className="text-sm text-muted-foreground">
-              Average download rate by hour, last 30 days.
+              Average download rate by hour, last 30 days. The brighter bar is the hour you're in now.
             </p>
           </div>
           {summary ? (
@@ -229,7 +256,7 @@ export function StatisticsPage() {
   )
 }
 
-function Figure({ label, value, detail }: { label: string; value: string; detail?: string }) {
+function Figure({ label, value, detail }: { label: string; value: ReactNode; detail?: string }) {
   return (
     <div className="flex flex-col gap-1">
       <dt className="text-sm text-muted-foreground">{label}</dt>

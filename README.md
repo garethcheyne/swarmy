@@ -23,26 +23,40 @@ host's shell (**Datacenter → your node → Shell**) and it creates the contain
 bash -c "$(curl -fsSL https://raw.githubusercontent.com/garethcheyne/swarmy/main/install/proxmox.sh)"
 ```
 
+It asks a few questions, then shows a summary before creating anything:
+
+1. **Where the container's disk goes.** Local storage (such as `local-lvm` or `local-zfs`) comes first; containers on
+   NFS or SMB storage often won't start.
+2. **Which of the host's shared storage to map in.** Your NAS shares and other storage from **Datacenter → Storage**
+   are listed; each one you tick appears in the container at `/mnt/<name>`. Swarmy can download to one, and move
+   finished downloads onto any of them.
+3. **Where downloads go:** a folder on one of those shares (it's created if needed), or inside the container.
+
 The container is unprivileged Debian (2 cores, 1 GB RAM, 8 GB disk), starts with the host, and gets its address by
-DHCP. When it's done, the script prints the address to open and the first sign-in password.
+DHCP. When it's done, the script prints the address to open and the first sign-in password, and checks Swarmy can
+write to the download folder (if it can't, it says how to fix that for your kind of storage). If anything fails
+along the way, the half-made container is removed.
 
-Set options in front of the command. For example, to keep downloads in a folder on the host that Sonarr and Radarr
-can also see:
-
-```sh
-DOWNLOADS_HOST=/tank/downloads DOWNLOADS_CHOWN=1 bash -c "$(curl -fsSL https://raw.githubusercontent.com/garethcheyne/swarmy/main/install/proxmox.sh)"
-```
+To skip the questions, give the answers up front and add `NONINTERACTIVE=1`:
 
 | Option | Default | |
 |---|---|---|
 | `CTID` | next free ID | container ID |
 | `CT_HOSTNAME` | `swarmy` | container name |
 | `CORES`, `RAM`, `DISK` | `2`, `1024` (MB), `8` (GB) | container size |
-| `STORAGE` | first storage that holds containers | e.g. `local-lvm`, `local-zfs` |
+| `STORAGE` | best local storage | where the container's disk goes |
 | `BRIDGE` | `vmbr0` | network bridge (the container gets its address by DHCP) |
 | `PORT` | `8080` | web UI port |
-| `DOWNLOADS_HOST` | none | a host folder to use as the download folder |
-| `DOWNLOADS_CHOWN` | off | `1` lets the container write to `DOWNLOADS_HOST` |
+| `SHARES` | none | storages to map, e.g. `"NAS-Public NAS-Media"` |
+| `DOWNLOADS_SHARE`, `DOWNLOADS_SUBDIR` | none, `downloads` | download to this folder on a mapped storage |
+| `DOWNLOADS_HOST` | none | or download to any folder on the host |
+| `KEEP_ON_FAILURE` | off | `1` keeps the container if setup fails |
+
+For example, mapping two NAS shares and downloading to the first:
+
+```sh
+NONINTERACTIVE=1 SHARES="NAS-Public NAS-Media" DOWNLOADS_SHARE=NAS-Public bash -c "$(curl -fsSL https://raw.githubusercontent.com/garethcheyne/swarmy/main/install/proxmox.sh)"
+```
 
 ### Linux (Debian, Ubuntu, Fedora and other systemd distros)
 

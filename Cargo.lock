@@ -3880,6 +3880,7 @@ dependencies = [
  "serde_json",
  "sha2 0.10.9",
  "swarmy-engine",
+ "swarmy-usenet",
  "sysinfo",
  "tokio",
  "tower-http 0.7.1",

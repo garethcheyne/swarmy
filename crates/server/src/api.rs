@@ -56,9 +56,11 @@ pub fn router(state: Shared) -> Router<Shared> {
         .route("/peers", get(peer_map))
         .route("/geo", get(geo_status))
         .route("/geo/update", post(geo_update))
+        // Merged before the auth layer: a layer only covers routes that
+        // already exist when it's applied.
+        .merge(crate::usenet::router())
         .route_layer(middleware::from_fn_with_state(state, auth::require_session));
 
-    let protected = protected.merge(crate::usenet::router());
     Router::new()
         // SABnzbd's API lives at /api itself; it checks its own key.
         .route("/", get(crate::sab::api).post(crate::sab::api))

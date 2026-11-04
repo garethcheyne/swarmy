@@ -6,6 +6,7 @@ import {
   MoonIcon,
   PaletteIcon,
   PauseIcon,
+  PictureInPicture2Icon,
   PlayIcon,
   PlusIcon,
   SettingsIcon,
@@ -38,6 +39,7 @@ interface Props {
   onToggleTheme: () => void
   onNotifications: () => void
   onAppearance: () => void
+  onFloat: () => void
   onFilter: (f: Filter) => void
   onSelect: (hash: string) => void
 }
@@ -63,6 +65,7 @@ export function CommandPalette({
   onToggleTheme,
   onNotifications,
   onAppearance,
+  onFloat,
   onFilter,
   onSelect,
 }: Props) {
@@ -99,6 +102,10 @@ export function CommandPalette({
             <CommandItem onSelect={run(onToggleTheme)}>
               <MoonIcon />
               Switch light or dark
+            </CommandItem>
+            <CommandItem onSelect={run(onFloat)}>
+              <PictureInPicture2Icon />
+              Float mini view on top
             </CommandItem>
             <CommandItem onSelect={run(onAppearance)}>
               <PaletteIcon />

@@ -1,4 +1,4 @@
-import { MenuIcon, PlusIcon, SearchIcon, TurtleIcon } from "lucide-react"
+import { MenuIcon, PictureInPicture2Icon, PlusIcon, SearchIcon, TurtleIcon } from "lucide-react"
 
 import type { GlobalStats } from "@/lib/api"
 import { formatSpeed } from "@/lib/format"
@@ -15,9 +15,10 @@ interface Props {
   onOpenMenu: () => void
   onAdd: () => void
   onToggleAlt: () => void
+  onFloat: () => void
 }
 
-export function TopBar({ stats, demo, reconnecting, onOpenCommand, onOpenMenu, onAdd, onToggleAlt }: Props) {
+export function TopBar({ stats, demo, reconnecting, onOpenCommand, onOpenMenu, onAdd, onToggleAlt, onFloat }: Props) {
   const alt = !!stats?.alt_speed
   return (
     <header className="flex h-12 shrink-0 items-center gap-3 border-b bg-sidebar px-3 pt-[env(safe-area-inset-top)] text-sidebar-foreground md:gap-4 md:px-4 box-content">
@@ -66,6 +67,16 @@ export function TopBar({ stats, demo, reconnecting, onOpenCommand, onOpenMenu, o
           className={alt ? "bg-sidebar-primary/20 text-sidebar-primary hover:bg-sidebar-primary/30" : "text-sidebar-foreground"}
         >
           <TurtleIcon />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label="Float a mini view on top"
+          title="Float a mini view on top of other windows"
+          onClick={onFloat}
+          className="hidden text-sidebar-foreground md:inline-flex"
+        >
+          <PictureInPicture2Icon />
         </Button>
         <Button
           variant="ghost"

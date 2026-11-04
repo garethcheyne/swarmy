@@ -1,14 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { createRoot, type Root } from "react-dom/client"
 import { toast } from "sonner"
 
 import { api, UnauthorizedError, useLive, type ServerInfo } from "@/lib/api"
 import type { Filter } from "@/lib/filters"
-import { hashParam, useRoute } from "@/lib/route"
+import { usePalette } from "@/lib/palette"
+import { openFloating, pipSupported, syncTheme } from "@/lib/pip"
+import { hashParam, navigate, useRoute } from "@/lib/route"
 import { usePoll } from "@/lib/use-poll"
 import { AddTorrentDialog, type AddPrefill } from "@/components/add-torrent-dialog"
 import { AppearanceDialog } from "@/components/appearance-dialog"
 import { DeleteDialog } from "@/components/delete-dialog"
 import { Login } from "@/components/login"
+import { MiniView } from "@/components/mini-view"
 import { NotificationsDialog } from "@/components/notifications-dialog"
 import { CommandPalette } from "@/components/shell/command-palette"
 import { Nav } from "@/components/shell/nav"
@@ -207,6 +211,69 @@ function Shell({ onSignedOut }: { onSignedOut: () => void }) {
     setTheme(dark ? "light" : "dark")
   }
 
+  // ---- Mini view: floating always-on-top window (Document PiP) or popup.
+  const palette = usePalette()
+  const pip = useRef<{ win: Window; root: Root } | null>(null)
+  const [floating, setFloating] = useState(false)
+  const toggleAlt = useCallback(
+    () => run("change speed limits", () => api.setAltSpeed(!snapshot?.stats.alt_speed)),
+    [run, snapshot]
+  )
+  const openFromMini = useCallback((hash?: string) => {
+    window.focus()
+    navigate("torrents")
+    if (hash) setFocused(hash)
+  }, [])
+  const floatMini = useCallback(async () => {
+    try {
+      const win = await openFloating()
+      if (!win || !pipSupported() || pip.current?.win === win) return
+      const host = win.document.createElement("div")
+      host.style.height = "100%"
+      win.document.body.appendChild(host)
+      pip.current = { win, root: createRoot(host) }
+      setFloating(true)
+      win.addEventListener("pagehide", () => {
+        pip.current?.root.unmount()
+        pip.current = null
+        setFloating(false)
+      })
+    } catch (e) {
+      toast.error("Couldn't open the mini view", { description: errorText(e) })
+    }
+  }, [])
+  // Keep the floating window live: re-render on every snapshot and theme change.
+  useEffect(() => {
+    const p = pip.current
+    if (!p || !floating) return
+    syncTheme(p.win.document)
+    p.root.render(
+      <MiniView snapshot={snapshot} history={history} onToggleAlt={toggleAlt} onOpen={openFromMini} floating />
+    )
+  }, [floating, snapshot, history, toggleAlt, openFromMini, palette, theme])
+
+  if (route === "mini") {
+    // Standalone mini window (popup or PWA shortcut).
+    return (
+      <div className="h-svh">
+        <MiniView
+          snapshot={snapshot}
+          history={history}
+          onToggleAlt={toggleAlt}
+          onOpen={(hash) => {
+            const target = `/#/torrents${hash ? `?hash=${hash}` : ""}`
+            if (window.opener && !window.opener.closed) {
+              window.opener.location.hash = target.slice(1)
+              window.opener.focus()
+            } else {
+              window.open(target, "_blank")
+            }
+          }}
+        />
+      </div>
+    )
+  }
+
   const deleteNames = deleteTargets.map((h) => torrents.find((t) => t.hash === h)?.name ?? h)
   const nav = (onNavigate?: () => void) => (
     <Nav
@@ -235,9 +302,8 @@ function Shell({ onSignedOut }: { onSignedOut: () => void }) {
         onOpenCommand={() => setCommandOpen(true)}
         onOpenMenu={() => setMenuOpen(true)}
         onAdd={() => openAdd()}
-        onToggleAlt={() =>
-          run("change speed limits", () => api.setAltSpeed(!snapshot?.stats.alt_speed))
-        }
+        onToggleAlt={toggleAlt}
+        onFloat={floatMini}
       />
       <div className="flex min-h-0 flex-1">
         <aside className="hidden w-52 shrink-0 border-r md:block">{nav()}</aside>
@@ -288,6 +354,7 @@ function Shell({ onSignedOut }: { onSignedOut: () => void }) {
         onToggleTheme={toggleTheme}
         onNotifications={openNotifications}
         onAppearance={() => setAppearanceOpen(true)}
+        onFloat={floatMini}
         onFilter={setFilter}
         onSelect={setFocused}
       />

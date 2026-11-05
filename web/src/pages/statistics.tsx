@@ -38,6 +38,13 @@ const RANGE_NOUN: Record<HistoryRange, string> = {
   "1y": "the last year",
 }
 
+/** "15 minutes", "hour", "6 hours": how long one point on the chart covers. */
+function bucketNoun(secs: number) {
+  if (secs % 86400 === 0) return secs === 86400 ? "day" : `${secs / 86400} days`
+  if (secs % 3600 === 0) return secs === 3600 ? "hour" : `${secs / 3600} hours`
+  return secs === 60 ? "minute" : `${Math.round(secs / 60)} minutes`
+}
+
 export function StatisticsPage() {
   const [range, setRange] = useState<HistoryRange>("24h")
   const { data: history } = usePoll(() => api.history(range), 30000, range)
@@ -151,7 +158,7 @@ export function StatisticsPage() {
             <h2 className="text-[15px] font-semibold">Throughput</h2>
             <p className="text-sm text-muted-foreground numeric">
               {formatBytes(totals.dl)} down and {formatBytes(totals.ul)} up over{" "}
-              {RANGE_NOUN[range]}, peaking at {speed(peak)} on average
+              {RANGE_NOUN[range]}.{peak > 0 && ` The busiest ${bucketNoun(span)} averaged ${speed(peak)}.`}
             </p>
           </div>
           <Legend

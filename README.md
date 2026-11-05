@@ -98,7 +98,7 @@ The [compose file](deploy/docker-compose.yml) also shows how to run Swarmy behin
 
 ### Upgrade and remove
 
-Swarmy checks for new releases every few hours and says so in the status bar. **Settings → About** shows what's
+Swarmy checks for new releases every hour, and a button in the top bar says so until you install it. **Settings → About** shows what's
 new, and on Linux and Proxmox installs it with one click: Swarmy downloads it, checks it, installs it and restarts.
 (Swarmy itself runs unprivileged and can only *ask* for an update; a small root service, `swarmy-update`, set up by
 the installer, fetches the newest official release and installs it. It never installs anything Swarmy names. Its

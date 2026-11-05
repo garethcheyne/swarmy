@@ -1142,7 +1142,7 @@ function About({ server, check, onCheck }: { server: SettingsResponse; check: bo
         <SwitchRow
           id="update-check"
           label="Check for updates"
-          description="Every few hours, Swarmy asks GitHub whether there's a newer release, and says so in the status bar and here. Nothing is installed unless you choose to."
+          description="Every hour, Swarmy asks GitHub whether there's a newer release. When there is, a button in the top bar says so until you install it. Nothing is installed unless you choose to."
           checked={check}
           onChange={onCheck}
         />

@@ -322,7 +322,7 @@ impl Stats {
                     AVG(peers), AVG(active), AVG(cpu), MAX(mem)
              FROM minute WHERE ts >= ?2 GROUP BY b ORDER BY b",
         )?;
-        let buckets = stmt
+        let mut buckets = stmt
             .query_map(params![bucket, from - from.rem_euclid(bucket)], |r| {
                 let dl: i64 = r.get(1)?;
                 let ul: i64 = r.get(2)?;
@@ -341,6 +341,36 @@ impl Stats {
                 })
             })?
             .collect::<Result<Vec<_>, _>>()?;
+        // The minute in progress isn't saved yet; count it, as the totals do, so
+        // a burst shows on the chart straight away rather than a minute later.
+        let a = &g.acc;
+        if a.n > 0 && a.minute >= from {
+            let t = a.minute - a.minute.rem_euclid(bucket);
+            if buckets.last().is_none_or(|b| b.t != t) {
+                buckets.push(Bucket {
+                    t,
+                    dl_bytes: 0,
+                    ul_bytes: 0,
+                    dl_avg: 0.0,
+                    ul_avg: 0.0,
+                    dl_peak: 0,
+                    ul_peak: 0,
+                    peers: a.peers_sum as f64 / a.n as f64,
+                    active: a.active_sum as f64 / a.n as f64,
+                    cpu: a.cpu_sum / a.n as f64,
+                    mem: a.mem_max,
+                });
+            }
+            if let Some(b) = buckets.last_mut() {
+                b.dl_bytes += a.dl_bytes;
+                b.ul_bytes += a.ul_bytes;
+                b.dl_avg = b.dl_bytes as f64 / bucket as f64;
+                b.ul_avg = b.ul_bytes as f64 / bucket as f64;
+                b.dl_peak = b.dl_peak.max(a.dl_peak);
+                b.ul_peak = b.ul_peak.max(a.ul_peak);
+                b.mem = b.mem.max(a.mem_max);
+            }
+        }
         Ok(History {
             range: range.label().into(),
             bucket_secs: bucket,
@@ -408,7 +438,7 @@ impl Stats {
             "SELECT ((ts + ?1) / 86400) * 86400 - ?1 AS d, SUM(dl_bytes), SUM(ul_bytes)
              FROM minute WHERE ts >= ?2 GROUP BY d ORDER BY d",
         )?;
-        let daily = stmt
+        let mut daily = stmt
             .query_map(params![utc_offset_secs, today_start - 29 * 86400], |r| {
                 Ok(Day {
                     day: r.get(0)?,
@@ -417,7 +447,7 @@ impl Stats {
                 })
             })?
             .collect::<Result<Vec<_>, _>>()?;
-        let busiest_day = db
+        let mut busiest_day = db
             .query_row(
                 "SELECT ((ts + ?1) / 86400) * 86400 - ?1 AS d, SUM(dl_bytes) AS s, SUM(ul_bytes)
                  FROM minute GROUP BY d ORDER BY s DESC LIMIT 1",
@@ -431,6 +461,23 @@ impl Stats {
                 },
             )
             .ok();
+        // Today with the minute in progress, so it agrees with the totals.
+        if acc_dl + acc_ul > 0 {
+            if daily.last().is_none_or(|d| d.day != today_start) {
+                daily.push(Day {
+                    day: today_start,
+                    dl_bytes: 0,
+                    ul_bytes: 0,
+                });
+            }
+            if let Some(today) = daily.last_mut() {
+                today.dl_bytes += acc_dl;
+                today.ul_bytes += acc_ul;
+                if busiest_day.as_ref().is_none_or(|b| today.dl_bytes > b.dl_bytes || b.day == today.day) {
+                    busiest_day = Some(Day { ..*today });
+                }
+            }
+        }
 
         // Average download rate by local hour of day over the last 30 days.
         let mut hourly_profile = vec![0.0; 24];

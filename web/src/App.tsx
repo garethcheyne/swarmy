@@ -8,6 +8,7 @@ import { usePalette } from "@/lib/palette"
 import { openFloating, pipSupported, syncTheme } from "@/lib/pip"
 import { hashParam, navigate, useRoute } from "@/lib/route"
 import { usePoll } from "@/lib/use-poll"
+import { useIsMobile } from "@/hooks/use-mobile"
 import { compareVersions, markSeen, seenVersion } from "@/lib/version"
 import { settingsHref } from "@/lib/settings-sections"
 import { AddTorrentDialog, type AddPrefill } from "@/components/add-torrent-dialog"
@@ -47,6 +48,8 @@ export function App() {
   }, [])
 
   const signedOut = useCallback(() => setAuth("signed-out"), [])
+  const phone = useIsMobile()
+  const toastOffset = phone && auth === "signed-in" ? { bottom: "calc(4.5rem + env(safe-area-inset-bottom))" } : undefined
 
   return (
     <TooltipProvider>
@@ -59,7 +62,8 @@ export function App() {
       ) : (
         <Shell onSignedOut={signedOut} />
       )}
-      <Toaster position="bottom-right" />
+      {/* On phones, sit above the tab bar rather than over it. */}
+      <Toaster position="bottom-right" offset={toastOffset} mobileOffset={toastOffset} />
     </TooltipProvider>
   )
 }

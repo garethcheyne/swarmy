@@ -11,6 +11,14 @@ lists. Versions are `yyyy.mm.dd.build`: the release date, then 1 for the
 first release that day, 2 for the next, and so on. The top entry is the
 version Swarmy reports, and a release tag must match it.
 
+## [2026.11.05.8] - 2026-11-05
+
+### Fixed
+- Statistics: the chart, today's total and the busiest day now include the last minute, so they agree with "Downloaded, all time" straight away instead of a minute later.
+- On phones, notifications such as "Download finished" sit above the bottom navigation instead of covering it.
+- Statistics: the throughput summary now says what its peak is ("the busiest 15 minutes averaged…") instead of "peaking at … on average".
+- Settings → About now says Swarmy checks for updates every hour, as it does.
+
 ## [2026.11.05.7] - 2026-11-05
 
 ### Improved

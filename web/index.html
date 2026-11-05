@@ -12,7 +12,14 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="Swarmy" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" id="status-bar-style" />
+    <script>
+      // Settings > About > "Solid status bar on iPhone": set before iOS reads it.
+      try {
+        if (localStorage.getItem("swarmy.statusbar") === "solid")
+          document.getElementById("status-bar-style").setAttribute("content", "black")
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>

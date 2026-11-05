@@ -17,6 +17,7 @@ import { SETTINGS_SECTIONS, settingsHref, useSettingsSection } from "@/lib/setti
 import { SettingHelp } from "@/components/setting-help"
 import { ChangelogPanel } from "@/components/release-notes"
 import { UpdatesPanel } from "@/components/updates"
+import { ScreenDiagnostics } from "@/components/screen-diagnostics"
 import { FolderInput } from "@/components/folder-picker"
 import { AppearancePanel } from "@/components/appearance-dialog"
 import { IntegrationsSection } from "@/components/integrations-section"
@@ -1156,6 +1157,12 @@ function About({ server, check, onCheck }: { server: SettingsResponse; check: bo
             </div>
           ))}
         </dl>
+      </Section>
+      <Section
+        title="Screen details"
+        description="What this device reports about its screen. If something looks wrong on a phone, copy these and send them with a screenshot."
+      >
+        <ScreenDiagnostics />
       </Section>
       <Section
         title="Release notes"

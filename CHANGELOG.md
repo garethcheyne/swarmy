@@ -11,6 +11,12 @@ lists. Versions are `yyyy.mm.dd.build`: the release date, then 1 for the
 first release that day, 2 for the next, and so on. The top entry is the
 version Swarmy reports, and a release tag must match it.
 
+## [2026.11.05.15] - 2026-11-05
+
+### New
+- Settings → About → Screen details shows what your device reports about its screen, with a button to copy it, for sorting out layout problems on phones.
+- "Solid status bar on iPhone" in the same place starts the home screen app below the status bar instead of behind it, so nothing can be blurred under the Dynamic Island.
+
 ## [2026.11.05.14] - 2026-11-05
 
 ### Improved

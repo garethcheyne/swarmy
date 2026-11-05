@@ -1,9 +1,14 @@
 import type { Torrent } from "@/lib/api"
-import { formatEta, formatPercent, formatSpeed } from "@/lib/format"
+import { formatBytes, formatEta, formatPercent, formatSpeed } from "@/lib/format"
 import { cn } from "@/lib/utils"
 import { barColor, stateLabel } from "@/components/torrent-table"
 
-/** Phone layout: one tappable row per torrent, 64px+ tall. */
+/**
+ * Phone layout: one tappable row per torrent. The name gets two lines (the end
+ * of a release name is often the part that matters), unfinished torrents get a
+ * progress bar, and the line under it says what matters for that torrent now:
+ * how far and how fast while it downloads, size, ratio and upload once it's done.
+ */
 export function TorrentList({
   rows,
   focused,
@@ -14,36 +19,65 @@ export function TorrentList({
   onFocus: (hash: string) => void
 }) {
   return (
-    <ul className="flex flex-col text-[13px]" aria-label="Torrents">
-      {rows.map((t) => (
-        <li key={t.hash}>
-          <button
-            type="button"
-            onClick={() => onFocus(t.hash)}
-            className={cn(
-              "flex min-h-16 w-full flex-col gap-1.5 border-b border-border/60 px-4 py-2.5 text-left active:bg-muted",
-              focused === t.hash && "bg-muted"
-            )}
-          >
-            <span className="flex items-baseline justify-between gap-3">
-              <span className="min-w-0 truncate font-medium">{t.name}</span>
-              <span className="data shrink-0 text-xs">
-                {t.download_speed > 0 ? formatSpeed(t.download_speed) : t.upload_speed > 0 ? `▲ ${formatSpeed(t.upload_speed)}` : ""}
+    <ul className="flex flex-col" aria-label="Torrents">
+      {rows.map((t) => {
+        const done = t.progress >= 1
+        const state = stateLabel(t)
+        const failed = t.state === "error" || !!t.move_error
+        // The bar and the speed already say it's downloading; say so to screen
+        // readers only, and leave the room for the numbers.
+        const obvious = state === "downloading" && t.download_speed > 0
+        return (
+          <li key={t.hash}>
+            <button
+              type="button"
+              data-hash={t.hash}
+              onClick={() => onFocus(t.hash)}
+              className={cn(
+                "flex w-full flex-col gap-2 border-b border-border/60 px-4 py-3 text-left active:bg-muted",
+                focused === t.hash && "bg-muted"
+              )}
+            >
+              <span className="line-clamp-2 text-[14px] leading-snug font-medium [overflow-wrap:anywhere]">{t.name}</span>
+              {!done && (
+                <span className="h-1 overflow-hidden rounded-full bg-muted" aria-hidden>
+                  <span className="block h-full rounded-full" style={{ width: `${Math.max(2, t.progress * 100)}%`, background: barColor(t) }} />
+                </span>
+              )}
+              <span className="flex min-w-0 items-center gap-x-3 text-[12px] text-muted-foreground">
+                <span className={cn("flex min-w-0 shrink items-center gap-1.5", failed && "text-destructive")}>
+                  <span className="size-2 shrink-0 rounded-full" style={{ background: barColor(t) }} aria-hidden />
+                  <span className={obvious ? "sr-only" : "truncate"}>{state}</span>
+                </span>
+                {!failed && (
+                  <span className="data flex shrink-0 items-center gap-x-3 text-foreground/80">
+                    {done ? (
+                      <>
+                        <span>{formatBytes(t.size)}</span>
+                        <span>
+                          <span className="text-muted-foreground">ratio </span>
+                          {t.ratio.toFixed(2)}
+                        </span>
+                        {t.upload_speed > 0 && <span className="text-up">▲ {formatSpeed(t.upload_speed)}</span>}
+                      </>
+                    ) : (
+                      <>
+                        <span>
+                          {formatPercent(t.progress)}
+                          {t.size > 0 && <span className="text-muted-foreground"> of {formatBytes(t.size)}</span>}
+                        </span>
+                        {t.download_speed > 0 && <span className="text-down">▼ {formatSpeed(t.download_speed)}</span>}
+                        {t.eta != null && t.download_speed > 0 && <span>{formatEta(t.eta)}</span>}
+                      </>
+                    )}
+                  </span>
+                )}
+                {t.category && <span className="ml-auto truncate pl-2 text-right">{t.category}</span>}
               </span>
-            </span>
-            <span className="h-1 overflow-hidden rounded-sm bg-muted">
-              <span className="block h-full" style={{ width: `${Math.max(2, t.progress * 100)}%`, background: barColor(t) }} />
-            </span>
-            <span className={cn("flex justify-between gap-3 text-[11px] text-muted-foreground", t.state === "error" && "text-destructive")}>
-              <span className="truncate">{t.category || "no category"}, {stateLabel(t)}</span>
-              <span className="data shrink-0">
-                {formatPercent(t.progress)}
-                {t.eta != null && `, ${formatEta(t.eta)}`}
-              </span>
-            </span>
-          </button>
-        </li>
-      ))}
+            </button>
+          </li>
+        )
+      })}
     </ul>
   )
 }

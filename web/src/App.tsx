@@ -23,7 +23,7 @@ import { CommandPalette } from "@/components/shell/command-palette"
 import { Nav } from "@/components/shell/nav"
 import { StatusBar } from "@/components/shell/status-bar"
 import { TabBar } from "@/components/shell/tab-bar"
-import { TopBar } from "@/components/shell/top-bar"
+import { TopBar, TopBarSpacer } from "@/components/shell/top-bar"
 import { useTheme } from "@/components/theme-provider"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Spinner } from "@/components/ui/spinner"
@@ -366,6 +366,7 @@ function Shell({ onSignedOut }: { onSignedOut: () => void }) {
         onToggleAlt={toggleAlt}
         onFloat={floatMini}
       />
+      <TopBarSpacer />
       <div className="flex min-h-0 flex-1">
         <aside className="hidden w-52 shrink-0 border-r md:block">{nav()}</aside>
         <div id="page" className="min-w-0 flex-1 overflow-hidden">
@@ -397,6 +398,10 @@ function Shell({ onSignedOut }: { onSignedOut: () => void }) {
               onPause={pause}
               onResume={resume}
               onDelete={requestDelete}
+              onFilterChange={(f) => {
+                setFilter(f)
+                setFocused(null)
+              }}
             />
           )}
         </div>

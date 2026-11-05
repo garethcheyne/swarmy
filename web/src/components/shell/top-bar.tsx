@@ -24,7 +24,11 @@ interface Props {
 export function TopBar({ stats, demo, reconnecting, update, onOpenCommand, onOpenMenu, onAdd, onToggleAlt, onFloat }: Props) {
   const alt = !!stats?.alt_speed
   return (
-    <header className="flex h-12 shrink-0 items-center gap-3 border-b bg-sidebar px-3 pt-[env(safe-area-inset-top)] text-sidebar-foreground md:gap-4 md:px-4 box-content">
+    // Fixed to the top with a solid background: iOS 26 blurs whatever scrolls
+    // under the status bar and Dynamic Island, unless it's a fixed bar like
+    // this, whose colour it carries up into the status bar instead. The shell
+    // reserves the same space with TopBarSpacer.
+    <header className="fixed inset-x-0 top-0 z-40 box-content flex h-12 items-center gap-3 border-b bg-sidebar px-3 pt-[env(safe-area-inset-top)] text-sidebar-foreground md:gap-4 md:px-4">
       <Button
         variant="ghost"
         size="icon"
@@ -112,4 +116,9 @@ export function TopBar({ stats, demo, reconnecting, update, onOpenCommand, onOpe
       </div>
     </header>
   )
+}
+
+/** Holds the fixed TopBar's place in the layout. */
+export function TopBarSpacer() {
+  return <div aria-hidden className="box-content h-12 shrink-0 border-b border-transparent pt-[env(safe-area-inset-top)]" />
 }

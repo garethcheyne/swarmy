@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react"
 import { FolderInputIcon, PauseIcon, PlayIcon, SearchIcon, Trash2Icon, XIcon } from "lucide-react"
 
 import type { Torrent } from "@/lib/api"
-import { matchesFilter, type Filter } from "@/lib/filters"
+import { matchesFilter, STATUS_PREDICATES, type Filter, type StatusFilter } from "@/lib/filters"
 import { useMediaQuery } from "@/hooks/use-media"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { Inspector } from "@/components/inspector"
@@ -14,6 +14,7 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/u
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Skeleton } from "@/components/ui/skeleton"
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 
 const VIEW_TITLE: Record<string, string> = {
   all: "All torrents",
@@ -25,6 +26,15 @@ const VIEW_TITLE: Record<string, string> = {
   error: "Errored",
   paused: "Paused",
 }
+
+/** The views worth a tap on a phone, where the sidebar's filters are a menu away. */
+const PHONE_VIEWS: { value: StatusFilter; label: string; always?: boolean }[] = [
+  { value: "all", label: "All", always: true },
+  { value: "downloading", label: "Downloading", always: true },
+  { value: "seeding", label: "Seeding", always: true },
+  { value: "paused", label: "Paused" },
+  { value: "error", label: "Errored" },
+]
 
 function title(f: Filter) {
   if (f.kind === "status") return VIEW_TITLE[f.value]
@@ -43,6 +53,7 @@ interface Props {
   onPause: (hashes: string[]) => void
   onResume: (hashes: string[]) => void
   onDelete: (hashes: string[]) => void
+  onFilterChange: (f: Filter) => void
 }
 
 export function TorrentsPage({
@@ -56,6 +67,7 @@ export function TorrentsPage({
   onPause,
   onResume,
   onDelete,
+  onFilterChange,
 }: Props) {
   const isMobile = useIsMobile()
   const wide = useMediaQuery("(min-width: 1024px)")
@@ -182,6 +194,30 @@ export function TorrentsPage({
             )}
           </div>
         </div>
+
+        {isMobile && (
+          <div className="shrink-0 overflow-x-auto border-b px-4 py-2 [scrollbar-width:none]">
+            <ToggleGroup
+              variant="outline"
+              size="sm"
+              aria-label="Show"
+              className="w-max"
+              value={filter.kind === "status" ? [filter.value] : []}
+              onValueChange={(v: string[]) => v[0] && onFilterChange({ kind: "status", value: v[0] as StatusFilter })}
+            >
+              {PHONE_VIEWS.map((view) => {
+                const n = torrents.filter(STATUS_PREDICATES[view.value]).length
+                if (!view.always && n === 0 && !(filter.kind === "status" && filter.value === view.value)) return null
+                return (
+                  <ToggleGroupItem key={view.value} value={view.value} className="shrink-0">
+                    {view.label}
+                    <span className="data text-muted-foreground">{n}</span>
+                  </ToggleGroupItem>
+                )
+              })}
+            </ToggleGroup>
+          </div>
+        )}
 
         <div className="min-h-0 flex-1 overflow-auto">
           {loading ? (

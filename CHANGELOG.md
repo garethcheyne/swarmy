@@ -11,6 +11,15 @@ lists. Versions are `yyyy.mm.dd.build`: the release date, then 1 for the
 first release that day, 2 for the next, and so on. The top entry is the
 version Swarmy reports, and a release tag must match it.
 
+## [2026.11.05.14] - 2026-11-05
+
+### Improved
+- The torrent list on phones shows more useful information. Names get two lines, so the end of a long release name isn't cut off. Downloads show how far they've got, their size, speed and time left. Finished torrents drop the full progress bar and show their size, share ratio and upload speed instead.
+- On phones, buttons above the list switch between All, Downloading and Seeding (plus Paused and Errored when there are any), each with its count, so you don't need the menu.
+
+### Fixed
+- iPhone: the top bar is pinned to the top of the screen, so iOS no longer blurs it under the Dynamic Island and colours the status bar to match instead.
+
 ## [2026.11.05.13] - 2026-11-05
 
 ### Fixed

@@ -218,7 +218,7 @@ pub fn ensure_account(store: &Store, username: &str, password: Option<&str>) -> 
     let (password, generated) = match (password, &existing) {
         (Some(p), _) => (p.to_owned(), false),
         (None, Some(_)) => return Ok(()),
-        (None, None) => (hex(&rand::random::<[u8; 9]>()), true),
+        (None, None) => (random_password(), true),
     };
     let account = Account {
         username: username.to_owned(),
@@ -232,6 +232,37 @@ pub fn ensure_account(store: &Store, username: &str, password: Option<&str>) -> 
         );
     }
     Ok(())
+}
+
+/// A password for when none was given: 18 hex characters.
+pub fn random_password() -> String {
+    hex(&rand::random::<[u8; 9]>())
+}
+
+/// Set a new password (and optionally username), and sign every session out.
+/// Creates the account, named `default_username`, if there isn't one.
+/// Returns the account's username.
+pub fn reset_account(
+    store: &Store,
+    new_username: Option<&str>,
+    default_username: &str,
+    password: &str,
+) -> anyhow::Result<String> {
+    let password_hash = hash_password(password)?;
+    let mut username = String::new();
+    store.update(|d| {
+        let account = d.account.get_or_insert_with(|| Account {
+            username: default_username.to_owned(),
+            password_hash: String::new(),
+        });
+        if let Some(u) = new_username {
+            account.username = u.to_owned();
+        }
+        account.password_hash = password_hash;
+        username = account.username.clone();
+        d.sessions.clear();
+    })?;
+    Ok(username)
 }
 
 /// Middleware: reject requests without a valid session cookie.

@@ -114,6 +114,11 @@ once more to turn them on.
 
 1. Open the address the installer printed (port 8080) and sign in as `admin` with the password it showed.
    Lost it? `journalctl -u swarmy | grep password`, or `docker logs swarmy | grep password`.
+   Changed it and forgot it? Set a new one; this signs everyone out, but API keys keep working:
+   - Linux: `sudo swarmy-reset-password`. It stops Swarmy, asks for the new password (Enter for a random one)
+     and starts Swarmy again. Proxmox: `pct exec <id> -- swarmy-reset-password`. Add `--username <name>` to
+     change the username too.
+   - Docker: `docker compose stop swarmy && docker compose run --rm -it swarmy reset-password && docker compose start swarmy`.
 2. Change the password in **Settings → Web UI and security**.
 3. Set your download folder, and optionally a separate folder for unfinished downloads, in **Settings → Downloads**.
    Every setting has a ⓘ explaining what it does.

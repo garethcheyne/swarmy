@@ -2,6 +2,7 @@
 
 mod api;
 mod auth;
+mod cli;
 mod changelog;
 mod config;
 mod folders;
@@ -51,6 +52,9 @@ async fn main() -> anyhow::Result<()> {
         .init();
 
     let cfg = Config::parse();
+    if let Some(cmd) = &cfg.command {
+        return cli::run(&cfg, cmd);
+    }
     let data_dir = cfg.data_dir();
     let download_dir = cfg.download_dir();
     std::fs::create_dir_all(&data_dir)

@@ -11,6 +11,12 @@ lists. Versions are `yyyy.mm.dd.build`: the release date, then 1 for the
 first release that day, 2 for the next, and so on. The top entry is the
 version Swarmy reports, and a release tag must match it.
 
+## [2026.11.05.11] - 2026-11-05
+
+### New
+- Forgot your password? `sudo swarmy-reset-password` sets a new one from the server's command line: it stops Swarmy, asks for the new password (or makes a random one), signs everyone out and starts Swarmy again. On Proxmox, run `pct exec <id> -- swarmy-reset-password`. API keys keep working. Installed before this version? Update from Settings → About, and the command is installed with it.
+- `swarmy reset-password` does the same from the Swarmy program itself, for Docker and other setups. It refuses to run while Swarmy is running, so it can't be overwritten.
+
 ## [2026.11.05.10] - 2026-11-05
 
 ### Fixed

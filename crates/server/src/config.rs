@@ -56,6 +56,10 @@ pub struct Config {
     /// Uses its own data directory (`<data dir>/demo`), so real stats are untouched.
     #[arg(long, env = "SWARMY_DEMO", default_value_t = false)]
     pub demo: bool,
+
+    /// Run a command instead of starting Swarmy.
+    #[command(subcommand)]
+    pub command: Option<crate::cli::Command>,
 }
 
 impl Config {

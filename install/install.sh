@@ -39,7 +39,7 @@ command -v systemctl >/dev/null || die "this installer needs systemd. Use the Do
 if [ "${SWARMY_UNINSTALL:-0}" = "1" ]; then
   say "Removing Swarmy (your data in $DATA_DIR and downloads are kept)"
   systemctl disable --now swarmy swarmy-update.path 2>/dev/null || true
-  rm -f "$UNIT" "$UPDATE_UNIT" "$UPDATE_PATH" "$UPDATE_LOG" "$UPDATE_REQUEST" /usr/local/bin/swarmy
+  rm -f "$UNIT" "$UPDATE_UNIT" "$UPDATE_PATH" "$UPDATE_LOG" "$UPDATE_REQUEST" /usr/local/bin/swarmy /usr/local/bin/swarmy-reset-password
   rm -rf "$BIN_DIR"
   systemctl daemon-reload
   say "Done. Delete $DATA_DIR and /etc/swarmy yourself if you want them gone too."
@@ -181,6 +181,50 @@ EOF
 chmod 0755 "$UPDATER.new"
 mv -f "$UPDATER.new" "$UPDATER"
 
+# `sudo swarmy-reset-password`: a new web UI password when nobody can sign in.
+# It stops Swarmy, has the binary change the password as Swarmy's own user (so
+# the settings stay Swarmy's), and starts Swarmy again.
+RESET_PW="$BIN_DIR/reset-password"
+cat > "$RESET_PW.new" <<EOF
+#!/usr/bin/env bash
+# Set a new password for Swarmy's web UI and sign everyone out.
+#   sudo swarmy-reset-password                 asks for it (Enter for a random one)
+#   sudo swarmy-reset-password --username me   changes the username too
+#   echo 'new password' | sudo swarmy-reset-password
+set -euo pipefail
+[ "\$(id -u)" -eq 0 ] || { echo "Run it as root: sudo \$0" >&2; exit 1; }
+pw=""
+if [ -t 0 ]; then
+  read -rsp "New password for Swarmy (at least 8 characters, or Enter for a random one): " pw; echo
+  if [ -n "\$pw" ]; then
+    read -rsp "The same again: " again; echo
+    [ "\$pw" = "\$again" ] || { echo "Those didn't match. Nothing was changed." >&2; exit 1; }
+  fi
+else
+  IFS= read -r pw || true
+fi
+if grep -q '^SWARMY_PASSWORD=' "$ENV_FILE" 2>/dev/null; then
+  echo "Note: $ENV_FILE sets SWARMY_PASSWORD, which replaces the password every time Swarmy starts." >&2
+  echo "Remove that line, or this change won't last: sed -i '/^SWARMY_PASSWORD=/d' $ENV_FILE" >&2
+fi
+was_running=0
+if systemctl is-active --quiet swarmy; then
+  was_running=1
+  systemctl stop swarmy
+fi
+restart() { if [ "\$was_running" = 1 ]; then systemctl start swarmy; fi; }
+trap restart EXIT
+(
+  set -a; . "$ENV_FILE"; set +a
+  printf '%s\n' "\$pw" | runuser -u swarmy -- env \
+    SWARMY_DATA_DIR="\${SWARMY_DATA_DIR:-$DATA_DIR}" SWARMY_WEB_ADDR="\${SWARMY_WEB_ADDR:-0.0.0.0:8080}" \
+    "$BIN_DIR/swarmy" reset-password "\$@"
+)
+EOF
+chmod 0755 "$RESET_PW.new"
+mv -f "$RESET_PW.new" "$RESET_PW"
+ln -sf "$RESET_PW" /usr/local/bin/swarmy-reset-password
+
 cat > "$UPDATE_UNIT" <<EOF
 [Unit]
 Description=Install the newest Swarmy release (asked for in Swarmy's settings)
@@ -231,6 +275,7 @@ if [ "$UPGRADE" = "0" ]; then
   echo
   echo "  Change the password in Settings > Web UI and security."
 fi
+echo "  Forgot the password? sudo swarmy-reset-password"
 echo "  Downloads: $(sed -n 's/^SWARMY_DOWNLOAD_DIR=//p' "$ENV_FILE")"
 echo "  Logs:      journalctl -u swarmy -f"
 echo "  Settings:  $ENV_FILE (service), and Settings in the web UI"

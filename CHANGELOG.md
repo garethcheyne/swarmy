@@ -11,6 +11,11 @@ lists. Versions are `yyyy.mm.dd.build`: the release date, then 1 for the
 first release that day, 2 for the next, and so on. The top entry is the
 version Swarmy reports, and a release tag must match it.
 
+## [2026.11.05.12] - 2026-11-05
+
+### Fixed
+- Swarmy's settings file is now readable by Swarmy only. It holds your Usenet server passwords, which can't be stored as hashes, and other users on the same machine could read it. The Linux installer also makes `/etc/swarmy/swarmy.env` private, since it can hold a password. Updating fixes both straight away.
+
 ## [2026.11.05.11] - 2026-11-05
 
 ### New

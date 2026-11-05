@@ -124,6 +124,11 @@ SWARMY_WEB_ADDR=0.0.0.0:$PORT
 # SWARMY_PASSWORD=change-me
 EOF
 fi
+# Root only: it can hold SWARMY_PASSWORD. systemd reads it as root.
+chmod 0600 "$ENV_FILE"
+# Swarmy writes its settings file private from now on (it holds Usenet
+# passwords); tighten one written by an older version straight away.
+[ -f "$DATA_DIR/swarmy.json" ] && chmod 0600 "$DATA_DIR/swarmy.json"
 
 cat > "$UNIT" <<EOF
 [Unit]

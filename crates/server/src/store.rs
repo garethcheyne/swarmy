@@ -524,7 +524,22 @@ impl Store {
 
 fn write_atomic(path: &Path, bytes: &[u8]) -> anyhow::Result<()> {
     let tmp = path.with_extension("json.tmp");
-    std::fs::write(&tmp, bytes).with_context(|| format!("writing {}", tmp.display()))?;
+    // Readable by Swarmy's user only: it holds Usenet passwords and the push
+    // signing key, which can't be stored as hashes.
+    let mut options = std::fs::OpenOptions::new();
+    options.write(true).create(true).truncate(true);
+    #[cfg(unix)]
+    std::os::unix::fs::OpenOptionsExt::mode(&mut options, 0o600);
+    options
+        .open(&tmp)
+        .and_then(|mut f| {
+            // A leftover temp file keeps its old mode; make sure it's private too.
+            #[cfg(unix)]
+            f.set_permissions(std::os::unix::fs::PermissionsExt::from_mode(0o600))?;
+            std::io::Write::write_all(&mut f, bytes)?;
+            f.sync_all()
+        })
+        .with_context(|| format!("writing {}", tmp.display()))?;
     std::fs::rename(&tmp, path).with_context(|| format!("replacing {}", path.display()))?;
     Ok(())
 }

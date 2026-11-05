@@ -58,6 +58,31 @@ async fn main() -> anyhow::Result<()> {
 
     let store = Store::open(data_dir.join("swarmy.json"))?;
     auth::ensure_account(&store, &cfg.username, cfg.password.as_deref())?;
+    // The engine's default folder. --download-dir is only the default: a folder
+    // chosen in Settings wins, so installers and Docker can set it without
+    // locking people out of changing it. One that can't be made (a share that's
+    // gone, say) is skipped rather than stopping Swarmy from starting, so it can
+    // be fixed in Settings.
+    let download_dir = {
+        let saved = store.read(|d| d.settings.downloads.default_save_path.trim().to_owned());
+        let mut options: Vec<std::path::PathBuf> = Vec::new();
+        if !saved.is_empty() {
+            options.push(saved.into());
+        }
+        options.push(download_dir);
+        options.push(data_dir.join("downloads"));
+        options
+            .iter()
+            .find(|d| match std::fs::create_dir_all(d) {
+                Ok(()) => true,
+                Err(e) => {
+                    tracing::warn!("can't use {} as the download folder: {e}", d.display());
+                    false
+                }
+            })
+            .cloned()
+            .unwrap_or_else(|| data_dir.clone())
+    };
 
     // Saved settings, with command-line flags / env vars taking precedence.
     let mut locked: Vec<&'static str> = Vec::new();
@@ -78,14 +103,6 @@ async fn main() -> anyhow::Result<()> {
         conn.ipv4_only = v;
         locked.push("connection.ipv4_only");
     }
-    // --download-dir is only the default: a folder chosen in Settings wins, so
-    // installers and Docker can set it without locking people out of changing it.
-    let saved_dir = store.read(|d| d.settings.downloads.default_save_path.clone());
-    let download_dir = if !saved_dir.trim().is_empty() {
-        std::path::PathBuf::from(saved_dir.trim())
-    } else {
-        download_dir
-    };
     let opt = |s: &str| (!s.trim().is_empty()).then(|| s.trim().to_owned());
 
     let stats = Arc::new(Stats::open(&data_dir.join("stats.db"), download_dir.clone())?);
@@ -157,6 +174,8 @@ async fn main() -> anyhow::Result<()> {
     }
     tokio::spawn(state::run_ticker(state.clone(), snap_tx));
     usenet::start(&state);
+    // Categories that exist before anything downloads into them still get a folder.
+    folders::make_category_folders(&state);
     tokio::spawn(mover::run(state.clone()));
     tokio::spawn(update::run(state.clone()));
     tokio::spawn(stats::run_system_sampler(stats));

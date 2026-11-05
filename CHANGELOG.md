@@ -11,6 +11,12 @@ lists. Versions are `yyyy.mm.dd.build`: the release date, then 1 for the
 first release that day, 2 for the next, and so on. The top entry is the
 version Swarmy reports, and a release tag must match it.
 
+## [2026.11.05.10] - 2026-11-05
+
+### Fixed
+- Radarr and Sonarr no longer warn about a missing remote path mapping for a category nothing has downloaded into yet. Swarmy now creates each category's folder when the category is made, when the downloads folder changes and when it starts.
+- Swarmy starts even when its download folder can't be reached, such as a share that's been unmounted. It uses the next folder it can and logs why, so you can fix it in Settings.
+
 ## [2026.11.05.9] - 2026-11-05
 
 ### Improved

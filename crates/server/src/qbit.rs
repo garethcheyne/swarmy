@@ -747,7 +747,10 @@ async fn create_category(State(state): State<Shared>, form: QForm) -> Response {
         }
     });
     match created {
-        Ok(true) => StatusCode::OK.into_response(),
+        Ok(true) => {
+            crate::folders::make_category_folders(&state);
+            StatusCode::OK.into_response()
+        }
         Ok(false) => text(StatusCode::CONFLICT, "Category already exists"),
         Err(_) => text(StatusCode::INTERNAL_SERVER_ERROR, "Internal Server Error"),
     }
@@ -765,6 +768,7 @@ async fn edit_category(State(state): State<Shared>, form: QForm) -> Response {
     });
     match found {
         Ok(true) => {
+            crate::folders::make_category_folders(&state);
             crate::mover::category_folder_changed(&state, &name);
             StatusCode::OK.into_response()
         }

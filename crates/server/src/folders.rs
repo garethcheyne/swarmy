@@ -51,6 +51,19 @@ pub fn check_writable(dir: &Path) -> Result<(), String> {
     Ok(())
 }
 
+/// Make sure every category's folder exists. Radarr and Sonarr check that the
+/// folder a category downloads to is there, and warn about a missing path
+/// mapping when it isn't, even before anything has downloaded into it.
+pub fn make_category_folders(state: &Shared) {
+    let names: Vec<String> = state.store.read(|d| d.categories.keys().cloned().collect());
+    for name in names {
+        let dir = state.resolve_save_path(None, &name);
+        if let Err(e) = std::fs::create_dir_all(&dir) {
+            tracing::warn!("can't create the folder for category {name}, {}: {e}", dir.display());
+        }
+    }
+}
+
 /// " (Swarmy runs as user 999)": the number to give a folder to.
 fn running_as() -> String {
     #[cfg(unix)]

@@ -332,6 +332,7 @@ async fn put_settings(
         let following: Vec<String> =
             state.store.read(|d| d.torrents.iter().filter(|(_, m)| m.auto_managed).map(|(h, _)| h.clone()).collect());
         crate::mover::category_changed(&state, &following);
+        crate::folders::make_category_folders(&state);
     }
     if usenet_changed {
         crate::usenet::apply(&state);
@@ -741,6 +742,7 @@ async fn put_category(
         let old = d.categories.insert(name.clone(), cat.clone());
         old.is_none_or(|o| o.save_path != cat.save_path)
     })?;
+    crate::folders::make_category_folders(&state);
     if moved {
         crate::mover::category_folder_changed(&state, &name);
     }

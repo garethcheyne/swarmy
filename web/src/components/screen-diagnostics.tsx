@@ -3,18 +3,6 @@ import { CopyIcon, RefreshCwIcon } from "lucide-react"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
-import { Switch } from "@/components/ui/switch"
-
-/** Read by the inline script in index.html before the page loads. */
-const STATUS_BAR_KEY = "swarmy.statusbar"
-
-function readStatusBar(): "translucent" | "solid" {
-  try {
-    return localStorage.getItem(STATUS_BAR_KEY) === "solid" ? "solid" : "translucent"
-  } catch {
-    return "translucent"
-  }
-}
 
 /** What the browser reports about the screen, for sorting out phone layout problems. */
 function measure(): [string, string][] {
@@ -56,10 +44,9 @@ function measure(): [string, string][] {
   ]
 }
 
-/** Settings → About: screen measurements to copy, and the iPhone status bar choice. */
+/** Settings → About: screen measurements to copy. */
 export function ScreenDiagnostics() {
   const [rows, setRows] = useState<[string, string][]>([])
-  const [statusBar, setStatusBar] = useState(readStatusBar)
   const refresh = useCallback(() => setRows(measure()), [])
 
   useEffect(() => {
@@ -81,29 +68,9 @@ export function ScreenDiagnostics() {
     }
   }
 
-  function setSolid(solid: boolean) {
-    try {
-      localStorage.setItem(STATUS_BAR_KEY, solid ? "solid" : "translucent")
-    } catch {
-      toast.error("Couldn't save that on this device.")
-      return
-    }
-    setStatusBar(solid ? "solid" : "translucent")
-    toast("Close Swarmy and open it again from the home screen to see the change.")
-  }
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex flex-col gap-1">
-          <span className="text-[14px] font-medium">Solid status bar on iPhone</span>
-          <span className="text-[13px] text-muted-foreground">
-            Starts Swarmy below the iPhone's status bar instead of behind it, so nothing passes under the Dynamic Island.
-            Only affects the app added to the home screen.
-          </span>
-        </div>
-        <Switch checked={statusBar === "solid"} onCheckedChange={setSolid} aria-label="Solid status bar on iPhone" />
-      </div>
       <dl className="grid grid-cols-[minmax(0,10rem)_minmax(0,1fr)] gap-x-4 gap-y-1.5 rounded-lg border p-3 text-[12px]">
         {rows.map(([k, v]) => (
           <div key={k} className="contents">

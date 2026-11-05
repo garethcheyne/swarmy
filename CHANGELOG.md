@@ -11,6 +11,13 @@ lists. Versions are `yyyy.mm.dd.build`: the release date, then 1 for the
 first release that day, 2 for the next, and so on. The top entry is the
 version Swarmy reports, and a release tag must match it.
 
+## [2026.11.05.16] - 2026-11-05
+
+### Fixed
+- iPhone home screen app: no more dark blur over the top bar. Since iOS 26.1, iPhones draw a gradient over a see-through status bar that a web page can't remove, so Swarmy no longer asks for one. The status bar now sits above Swarmy in the top bar's colour. **iOS only picks this up when the app is added to the home screen: remove Swarmy from the home screen and add it again from Safari.**
+- The status bar, the top bar and the space under the tab bar are now all the same colour, and follow your theme.
+- Removed "Solid status bar on iPhone" from 2026.11.05.15: iOS ignores the setting until the app is added again, so it couldn't work. Screen details is still there.
+
 ## [2026.11.05.15] - 2026-11-05
 
 ### New

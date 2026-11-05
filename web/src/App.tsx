@@ -313,7 +313,7 @@ function Shell({ onSignedOut }: { onSignedOut: () => void }) {
   if (route === "mini") {
     // Standalone mini window (popup or PWA shortcut).
     return (
-      <div className="fixed inset-0">
+      <div className="fixed inset-0 bg-background">
         <MiniView
           snapshot={snapshot}
           history={history}

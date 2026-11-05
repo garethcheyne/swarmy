@@ -637,7 +637,9 @@
     @apply border-border outline-ring/50;
     }
   body {
-    @apply bg-background text-foreground;
+    /* The bars' colour: whatever iOS shows outside the app's frame (behind the
+       status bar, under the tab bar) matches them. Pages paint their own background. */
+    @apply bg-sidebar text-foreground;
     }
   html {
     @apply font-sans;

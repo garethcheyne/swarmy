@@ -34,14 +34,21 @@ function read(): PaletteId {
   return PALETTES.some((p) => p.id === id) ? (id as PaletteId) : "swarmy"
 }
 
-function apply(id: PaletteId) {
-  document.documentElement.dataset.palette = id
-  // Keep the browser/PWA chrome in step with the palette.
+/** Keep the browser/PWA chrome (and the iPhone status bar) the colour of the top bar. */
+function syncChrome() {
   requestAnimationFrame(() => {
-    const bg = getComputedStyle(document.documentElement).getPropertyValue("--background").trim()
+    const bg = getComputedStyle(document.documentElement).getPropertyValue("--sidebar").trim()
     document.querySelector('meta[name="theme-color"]')?.setAttribute("content", bg || "#0e1510")
   })
 }
+
+function apply(id: PaletteId) {
+  document.documentElement.dataset.palette = id
+  syncChrome()
+}
+
+// Light and dark change the bar colour too (the theme provider swaps a class on <html>).
+new MutationObserver(syncChrome).observe(document.documentElement, { attributes: true, attributeFilter: ["class"] })
 
 let current = read()
 apply(current)

@@ -12,14 +12,11 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="Swarmy" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" id="status-bar-style" />
-    <script>
-      // Settings > About > "Solid status bar on iPhone": set before iOS reads it.
-      try {
-        if (localStorage.getItem("swarmy.statusbar") === "solid")
-          document.getElementById("status-bar-style").setAttribute("content", "black")
-      } catch (e) {}
-    </script>
+    <!-- No apple-mobile-web-app-status-bar-style: since iOS 26.1, "black-translucent"
+         gets a system gradient drawn over the top of the page that nothing can remove.
+         Without it the status bar sits above the page in the page's colour (Apple's
+         advice, WebKit bug 317153). iOS reads this when the app is added to the home
+         screen, so a change needs the app removed and added again. -->
   </head>
   <body>
     <div id="root"></div>

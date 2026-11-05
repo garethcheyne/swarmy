@@ -313,7 +313,7 @@ function Shell({ onSignedOut }: { onSignedOut: () => void }) {
   if (route === "mini") {
     // Standalone mini window (popup or PWA shortcut).
     return (
-      <div className="h-svh">
+      <div className="fixed inset-0">
         <MiniView
           snapshot={snapshot}
           history={history}
@@ -350,7 +350,11 @@ function Shell({ onSignedOut }: { onSignedOut: () => void }) {
   )
 
   return (
-    <div className="flex h-svh flex-col bg-background">
+    // Pinned to the screen edges rather than sized with 100svh: an iPhone home
+    // screen app reports 100svh minus the status bar, which left a gap under the
+    // tab bar, and iOS only treats a fixed top bar as a bar (anything else under
+    // the status bar gets blurred).
+    <div className="fixed inset-0 flex flex-col bg-background">
       <TopBar
         stats={snapshot?.stats}
         demo={!!info?.demo}

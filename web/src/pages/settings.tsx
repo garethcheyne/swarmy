@@ -281,7 +281,7 @@ export function SettingsPage({ onSignedOut }: { onSignedOut: () => void }) {
                         value={draft.downloads.default_save_path}
                         onChange={(v) => set("downloads", { default_save_path: v })}
                       />
-                      <FieldDescription>
+                      <FieldDescription className="[overflow-wrap:anywhere]">
                         Torrents with a category go in a subfolder named after it, unless the category has its own folder. Leave empty to use {server.effective_download_dir}.
                       </FieldDescription>
                     </Field>

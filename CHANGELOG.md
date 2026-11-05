@@ -11,6 +11,12 @@ lists. Versions are `yyyy.mm.dd.build`: the release date, then 1 for the
 first release that day, 2 for the next, and so on. The top entry is the
 version Swarmy reports, and a release tag must match it.
 
+## [2026.11.05.13] - 2026-11-05
+
+### Fixed
+- iPhone home screen app: the tab bar now sits at the bottom of the screen, with no gap under it, and the top bar is no longer blurred by the status bar. Dragging past the end of a list no longer pulls the whole app with it.
+- Settings → Downloads: a long folder path wraps instead of running off the screen on a phone.
+
 ## [2026.11.05.12] - 2026-11-05
 
 ### Fixed

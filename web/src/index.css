@@ -641,6 +641,8 @@
     }
   html {
     @apply font-sans;
+    /* No rubber-banding the whole app on iOS: the lists scroll, the frame doesn't. */
+    overscroll-behavior: none;
     }
 }
 [data-palette="honey"]:not(.dark) {

@@ -324,6 +324,15 @@ async fn put_settings(
     state.store.update(|d| {
         d.settings = new.clone();
     })?;
+    // Categories without a folder of their own live under the downloads
+    // folder, so their torrents follow it there (as qBittorrent's do). One that
+    // is already there under another name, like a second mount of the same
+    // share, is only pointed at the new name: no files move.
+    if new.downloads.default_save_path.trim() != old.downloads.default_save_path.trim() {
+        let following: Vec<String> =
+            state.store.read(|d| d.torrents.iter().filter(|(_, m)| m.auto_managed).map(|(h, _)| h.clone()).collect());
+        crate::mover::category_changed(&state, &following);
+    }
     if usenet_changed {
         crate::usenet::apply(&state);
     }

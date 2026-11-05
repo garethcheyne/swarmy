@@ -11,6 +11,12 @@ lists. Versions are `yyyy.mm.dd.build`: the release date, then 1 for the
 first release that day, 2 for the next, and so on. The top entry is the
 version Swarmy reports, and a release tag must match it.
 
+## [2026.11.05.9] - 2026-11-05
+
+### Improved
+- Changing the downloads folder now moves the torrents that follow their category along with it, as qBittorrent does. Torrents you've moved by hand stay put, and Settings → Downloads → "Move files when the category changes" turns it off.
+- Switching to the same share under another name, such as a second mount of it at a new path, no longer gets stuck on "already exists": Swarmy sees it's the same folder and just points the torrents at the new name. No files are copied or deleted, and Sonarr and Radarr are given the new paths.
+
 ## [2026.11.05.8] - 2026-11-05
 
 ### Fixed

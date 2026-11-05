@@ -319,7 +319,7 @@ export function SettingsPage({ onSignedOut }: { onSignedOut: () => void }) {
                     <SwitchRow
                       id="category-moves" help="category_moves"
                       label="Move files when the category changes"
-                      description="Changing a torrent's category, or a category's folder, moves its files to match. Torrents you've moved by hand stay where you put them."
+                      description="Changing a torrent's category, a category's folder or the downloads folder moves its files to match. Torrents you've moved by hand stay where you put them."
                       checked={draft.downloads.category_moves}
                       onChange={(v) => set("downloads", { category_moves: v })}
                     />

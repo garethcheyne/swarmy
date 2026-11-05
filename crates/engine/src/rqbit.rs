@@ -692,6 +692,11 @@ impl Engine for RqbitEngine {
         // A multi-file torrent's folder is its own (named after it); a single
         // file sits straight in a shared folder that must stay.
         let prune_from = files.len() > 1 && from.file_name().map(|n| n.to_string_lossy().into_owned()) == name;
+        // The same share under another name (a second mount): just switch.
+        let same_folder = relocate::same_folder_elsewhere(&from, &to);
+        if same_folder {
+            tracing::info!("{} and {} are one folder; switching without moving files", from.display(), to.display());
+        }
         let j = Journal {
             info_hash: hash.to_owned(),
             from,
@@ -701,6 +706,7 @@ impl Engine for RqbitEngine {
             only_files: t.only_files(),
             prune_from,
             phase: Phase::Files,
+            same_folder,
         };
         relocate::check_targets(&j)?;
 

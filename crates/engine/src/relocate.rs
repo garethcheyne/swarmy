@@ -13,6 +13,12 @@
 //! What's on disk says how far a move got: a file only at the destination was
 //! renamed, one in both places was copied. That's all undo and cleanup need,
 //! whether they run straight after a failure or after a restart.
+//!
+//! One exception: the destination can be the *same* folder under another name
+//! (two mounts of one share, say `/mnt/a` and `/mnt/b`). Then every file is "in
+//! both places" and deleting either copy deletes the only one, so such a move
+//! (`Journal::same_folder`) never touches a file: the torrent is only pointed
+//! at the new name.
 
 use std::{
     fs,
@@ -45,6 +51,9 @@ pub(crate) struct Journal {
     /// `from` is the torrent's own folder, so remove it once it's empty.
     pub prune_from: bool,
     pub phase: Phase,
+    /// `from` and `to` are one folder under two names: switch, don't move.
+    #[serde(default)]
+    pub same_folder: bool,
 }
 
 /// Journals live in `<state dir>/moves`: `<hash>.json`, plus the torrent
@@ -122,6 +131,27 @@ pub fn same_dir(a: &Path, b: &Path) -> bool {
     matches!((fs::canonicalize(a), fs::canonicalize(b)), (Ok(x), Ok(y)) if x == y)
 }
 
+/// `a` and `b` are one folder reached by two paths that `canonicalize` can't
+/// tie together, such as two mounts of the same share. Found out by leaving a
+/// note in `a` and looking for it in `b`. False if either is missing or `a`
+/// can't be written to.
+pub fn same_folder_elsewhere(a: &Path, b: &Path) -> bool {
+    if !a.is_dir() || !b.is_dir() || same_dir(a, b) {
+        return false;
+    }
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |d| d.as_nanos());
+    let name = format!(".swarmy-same-folder-{}-{nanos}", std::process::id());
+    let note = a.join(&name);
+    if fs::OpenOptions::new().write(true).create_new(true).open(&note).is_err() {
+        return false;
+    }
+    let seen = b.join(&name).exists();
+    let _ = fs::remove_file(&note);
+    seen
+}
+
 /// Refuse a move that would overwrite something, before anything is touched.
 pub(crate) fn check_targets(j: &Journal) -> anyhow::Result<()> {
     anyhow::ensure!(!same_dir(&j.from, &j.to), "The torrent is already in that folder.");
@@ -131,6 +161,9 @@ pub(crate) fn check_targets(j: &Journal) -> anyhow::Result<()> {
             "The torrent has an unsafe file name: {}",
             rel.display()
         );
+        if j.same_folder {
+            continue; // Its files are already "there": they're the same files.
+        }
         let dst = j.to.join(rel);
         if j.from.join(rel).exists() && dst.exists() {
             anyhow::bail!("{} already exists. Swarmy won't overwrite it.", dst.display());
@@ -146,6 +179,10 @@ pub(crate) fn bytes_present(j: &Journal) -> u64 {
 
 /// Move every file that exists. On failure everything is put back first.
 pub(crate) fn move_files(j: &Journal, done: &AtomicU64) -> anyhow::Result<()> {
+    if j.same_folder {
+        done.store(bytes_present(j), Ordering::Relaxed);
+        return Ok(());
+    }
     move_files_with(j, done, |a, b| fs::rename(a, b))
 }
 
@@ -204,6 +241,9 @@ fn copy_file(src: &Path, dst: &Path, done: &AtomicU64) -> anyhow::Result<()> {
 
 /// Put a move back: renamed files return, copies are deleted.
 pub(crate) fn undo(j: &Journal) -> anyhow::Result<()> {
+    if j.same_folder {
+        return Ok(()); // Nothing moved.
+    }
     let mut first_error = None;
     for rel in &j.files {
         let (src, dst) = (j.from.join(rel), j.to.join(rel));
@@ -231,6 +271,9 @@ pub(crate) fn undo(j: &Journal) -> anyhow::Result<()> {
 
 /// After a successful move: delete the originals of copied files.
 pub(crate) fn cleanup(j: &Journal) {
+    if j.same_folder {
+        return; // The "originals" are the files themselves.
+    }
     for rel in &j.files {
         let (src, dst) = (j.from.join(rel), j.to.join(rel));
         if src.exists() && dst.exists()
@@ -309,7 +352,43 @@ mod tests {
             only_files: None,
             prune_from: true,
             phase: Phase::Files,
+            same_folder: false,
         }
+    }
+
+    #[test]
+    fn same_folder_switch_never_touches_files() {
+        let tmp = tempfile::tempdir().unwrap();
+        let mut j = journal(tmp.path(), &["S01/e1.mkv", "e2.mkv"]);
+        // Stand-in for one share under two names: the files are "in both places".
+        for root in [&j.from, &j.to] {
+            write(&root.join("S01/e1.mkv"), "one");
+            write(&root.join("e2.mkv"), "two");
+        }
+        assert!(check_targets(&j).is_err(), "an ordinary move must refuse to overwrite");
+        j.same_folder = true;
+        check_targets(&j).unwrap();
+        let done = AtomicU64::new(0);
+        move_files(&j, &done).unwrap();
+        assert_eq!(done.load(Ordering::Relaxed), 6);
+        cleanup(&j);
+        undo(&j).unwrap();
+        for root in [&j.from, &j.to] {
+            assert_eq!(fs::read_to_string(root.join("S01/e1.mkv")).unwrap(), "one");
+            assert_eq!(fs::read_to_string(root.join("e2.mkv")).unwrap(), "two");
+        }
+    }
+
+    #[test]
+    fn tells_different_folders_apart() {
+        let tmp = tempfile::tempdir().unwrap();
+        let (a, b) = (tmp.path().join("a"), tmp.path().join("b"));
+        fs::create_dir_all(&a).unwrap();
+        fs::create_dir_all(&b).unwrap();
+        assert!(!same_folder_elsewhere(&a, &b));
+        assert!(!same_folder_elsewhere(&a, &a), "the same path is same_dir, not elsewhere");
+        assert!(!same_folder_elsewhere(&a, &tmp.path().join("missing")));
+        assert_eq!(fs::read_dir(&a).unwrap().count(), 0, "the note is cleaned up");
     }
 
     fn write(path: &Path, body: &str) {
